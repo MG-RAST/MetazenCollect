@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ti:app xmlns:ti="http://ti.appcelerator.org">
+    <property name="acs-oauth-secret-production" type="string">6QHtDK6T4CJTPtZ0cr9HRjEdgc9j97Nh</property>
+    <property name="acs-oauth-key-production" type="string">7xskJyl9S8P6c4UmF7mIyp6hvxHVS7Zq</property>
+    <property name="acs-api-key-production" type="string">aGFhKdn6ecN8SGeXHF0fp1nSeWKkNQQA</property>
+    <property name="acs-oauth-secret-development" type="string">yDC87B5DjF4GdeRW8WJt44Xw70Qk6ewR</property>
+    <property name="acs-oauth-key-development" type="string">XAbo6uunoLLcNi3deFYNpAJPNDjH7qPP</property>
+    <property name="acs-api-key-development" type="string">Vtt2QvPPbEeMkIJdC3JGv1vjXF4dxJvA</property>
+    <id>gov.anl.metagenomics.metazen</id>
+    <name>Metazen</name>
+    <version>1.0</version>
+    <publisher>tobiaspaczian</publisher>
+    <url>http://metagenomics.anl.gov/metazen.cgi</url>
+    <description>Enter metadata for your metagenomics experiment using controlled vocabularies.</description>
+    <copyright>2013 by tobiaspaczian</copyright>
+    <icon>MGRAST_logo.png</icon>
+    <persistent-wifi>false</persistent-wifi>
+    <prerendered-icon>false</prerendered-icon>
+    <statusbar-style>default</statusbar-style>
+    <statusbar-hidden>false</statusbar-hidden>
+    <fullscreen>false</fullscreen>
+    <navbar-hidden>false</navbar-hidden>
+    <analytics>true</analytics>
+    <guid>7339cd94-1f2e-4fad-8d57-d8b11200c0c2</guid>
+    <property name="ti.ui.defaultunit" type="string">system</property>
+    <iphone>
+        <orientations device="iphone">
+            <orientation>Ti.UI.PORTRAIT</orientation>
+        </orientations>
+        <orientations device="ipad">
+            <orientation>Ti.UI.PORTRAIT</orientation>
+            <orientation>Ti.UI.UPSIDE_PORTRAIT</orientation>
+            <orientation>Ti.UI.LANDSCAPE_LEFT</orientation>
+            <orientation>Ti.UI.LANDSCAPE_RIGHT</orientation>
+        </orientations>
+    </iphone>
+    <android xmlns:android="http://schemas.android.com/apk/res/android"/>
+    <mobileweb>
+        <precache/>
+        <splash>
+            <enabled>true</enabled>
+            <inline-css-images>true</inline-css-images>
+        </splash>
+        <theme>default</theme>
+    </mobileweb>
+    <modules>
+        <module platform="commonjs">ti.cloud</module>
+    </modules>
+    <deployment-targets>
+        <target device="blackberry">false</target>
+        <target device="android">true</target>
+        <target device="ipad">true</target>
+        <target device="iphone">true</target>
+        <target device="mobileweb">true</target>
+    </deployment-targets>
+    <sdk-version>3.0.2.GA</sdk-version>
+</ti:app>
