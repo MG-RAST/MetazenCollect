@@ -1,3 +1,39 @@
+/*
+ * 	TODO:
+ *
+ * 	CLEANUP
+ * 
+ * 	- clean up data structures for
+ * 		- controlled vocabularies
+ *  	- form definitions
+ *  	- user data
+ * 
+ *  - create separate modules for each view
+ *  - create component module for composite UI elements
+ *  - create module for data management
+ * 		- send / receive API
+ * 		- store / load disk
+ * 		- send email
+ * 	- clean up nomenclature
+ * 	- unique checks
+ * 
+ * 	FEATURES
+ * 
+ * 	- add cloud storage option for google drive
+ * 	- add more form element types
+ *  - create horizontal vs vertical data entry metaphor
+ *  - add form creation / manipulation metaphor
+ * 	- add dynamic defaults (e.g. prefix with concatenated counter)
+ * 
+ * 	TESTING
+ * 
+ * 	- add documentation
+ * 	- check platform differences
+ * 	- polishing of UI elements
+ * 	- minimize number of clicks
+ * 
+ */
+
 //FormView Component Constructor
 function FormView() {
 	var self = Ti.UI.createView();
