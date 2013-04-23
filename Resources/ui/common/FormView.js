@@ -93,6 +93,27 @@ function FormView() {
 	var currentDatasetIndex = 0;
 	var currentDataset = {};
 	var orientation = 'vertical';
+	var availableForms = [];
+	var filledForms = {};
+	var currentFormInstanceName = 'hansolo'
+	
+	// check for existing form data
+	var savedData = Ti.Filesystem.getFile(Ti.Filesystem.getApplicationDataDirectory() + '/formData');
+	if (savedData.getSize() > 0){
+		availableForms = JSON.parse(savedData.read());
+	} else {
+		savedData.write( JSON.stringify([ { name: 'Example Form',
+											data: formDefinition } ]) );
+	}
+	
+	// check for existing user input data
+	var userData = Ti.Filesystem.getFile(Ti.Filesystem.getApplicationDataDirectory() + '/userData');
+	if (userData.getSize() > 0){
+		filledForms = JSON.parse(userData.read());
+	} else {
+		userData.write( JSON.stringify({ 'Example Form': { 'hansolo': [ { 'name': 'hans',
+																		  'biome': 'biome 1' } ] } }));
+	}
 						   	
 	var buttonHeight = 35;
 	if (Ti.Platform.osname === 'android') {
@@ -101,7 +122,7 @@ function FormView() {
                         
     var formLabel = Ti.UI.createLabel({
 		color:'#000000',
-		text: formDefinition.label,
+		text: formDefinition.label + ' - ' + currentFormInstanceName,
 		top: 10,
 		height:'auto',
 		width:'auto'
@@ -124,6 +145,139 @@ function FormView() {
 		height: buttonHeight
 	});
 	
+	var exportView = self.exportView = function (){
+		var listView = Ti.UI.createView({
+			top: 0,
+			backgroundColor: '#ffffff',
+			width: '100%',
+			height: '100%',
+			zIndex: 1
+		});
+		
+		var cancel = Ti.UI.createButton({
+			top: 5,
+			left: 5,
+		    title: 'Cancel',
+		    width: 'auto',
+		    height:30
+		});
+		cancel.addEventListener('click', function(e){
+			self.remove(listView);
+		});
+
+		var viewTitle = Ti.UI.createLabel({
+		    top: 8,
+		    left: 100,
+		    height: 'auto',
+		    color: '#000000',
+		    backgroundColor: '#ffffff',
+		    text: 'Export Options'
+		});
+		
+		listView.add(cancel);
+		listView.add(viewTitle);
+		
+		self.add(listView);
+		var array = [];
+
+		// export to email
+		var mailLabel = Ti.UI.createLabel({
+			color:'#000000',
+			backgroundColor:'#ffffff',
+			text: 'eMail',
+			height:'auto',
+			width:'auto',
+		});
+		var mailRow = Ti.UI.createTableViewRow({
+			height:46
+		});
+		mailRow.addEventListener('click',
+			function(e){
+				var emailDialog = Ti.UI.createEmailDialog();
+				emailDialog.subject = 'MetazenCollect Data Export - ' + formDefinition.label + ': ' + currentFormInstanceName;
+				emailDialog.messageBody = "MetazenCollect Data Export\n\nExport Form Type: " + formDefinition.label + "\nForm Instance Name: " + currentFormInstanceName;
+				var f = Ti.Filesystem.getFile(Ti.Filesystem.getApplicationDataDirectory() + '/userData');
+				emailDialog.addAttachment(f);
+				emailDialog.open();
+				self.remove(listView);
+			}
+		);
+		mailRow.add(mailLabel);
+		array.push(mailRow);
+		
+		// export to file
+		var fileLabel = Ti.UI.createLabel({
+			color:'#000000',
+			backgroundColor:'#ffffff',
+			text: 'file',
+			height:'auto',
+			width:'auto',
+		});
+		var fileRow = Titanium.UI.createTableViewRow({
+			height:46
+		});
+		fileRow.addEventListener('click',
+			function(e){
+				alert('exporting to file');
+				self.remove(listView);
+			}
+		);
+		fileRow.add(fileLabel);
+		array.push(fileRow);
+				
+		// export to API
+		var apiLabel = Ti.UI.createLabel({
+			color:'#000000',
+			backgroundColor:'#ffffff',
+			text: 'MG-RAST',
+			height:'auto',
+			width:'auto',
+		});
+		var apiRow = Ti.UI.createTableViewRow({
+			height:46
+		});
+		apiRow.addEventListener('click',
+			function(e){
+				alert('exporting to MG-RAST');
+				var url = "http://api.metagenomics.anl.gov/api2.cgi/metagenome/mgm4440026.3?verbosity=full";
+				var client = Ti.Network.createHTTPClient({
+			     	onload : function(e) {
+			     		var response = JSON.parse(this.responseText);
+			     		if (! response.error){
+			       	 		alert('Your data was submitted successfully');
+				       	 } else {
+				       	 	alert('Your data submission failed: '+response.error);
+				       	 }
+ 						self.remove(listView);
+				    },
+			     	onerror : function(e) {
+			        	Ti.API.debug(e.error);
+			         	alert('error');
+     					self.remove(listView);
+			     	},
+			     	timeout : 5000  // in milliseconds
+				 });
+				 // Prepare the connection.
+		 		client.open("GET", url);
+		 		// Send the request.
+		 		client.send();
+			}
+		);
+		apiRow.add(apiLabel);
+		array.push(apiRow);
+		
+		// create the table view
+		var tableView = Ti.UI.createTableView({
+			top: 40,
+			data: array,
+			style:Titanium.UI.iPhone.TableViewStyle.GROUPED
+		});
+					
+		listView.add(tableView);
+	};
+	
+	exportButton.addEventListener('click',self.exportView);
+	
 	self.add(exportButton);
 	
 	var enterDataButton = Ti.UI.createButton({
@@ -143,58 +297,196 @@ function FormView() {
 	});
  
 	self.add(viewDataButton);
+	
+	var selectFormInstance = self.selectFormInstance = function (formName){
+		var existingForms = filledForms[formName] ? filledForms[formName] : {};
+		alert(existingForms);
+	};
+	
+	var selectForm = self.selectForm = function (){
+		var listView = Ti.UI.createView({
+			top: 0,
+			backgroundColor: '#ffffff',
+			width: '100%',
+			height: '100%',
+			zIndex: 1
+		});
+		
+		var cancel = Ti.UI.createButton({
+			top: 5,
+			left: 5,
+		    title: 'Cancel',
+		    width: 'auto',
+		    height:30
+		});
+		cancel.addEventListener('click', function(e){
+			self.remove(listView);
+		});
 
-	viewDataButton.addEventListener('click', 
-		function(e){
-			var listView = Ti.UI.createScrollView({
-				top: 0,
-				width: '100%',
-				height: '100%',
-				zIndex: 1
+		var filterbox = Ti.UI.createTextField({
+		    width: 200,
+		    top: 5,
+		    left: 100,
+		    height: 'auto',
+		    color: '#000000',
+		    backgroundColor: '#ffffff',
+		    borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED
+		});
+		
+		listView.add(cancel);
+		listView.add(filterbox);
+		
+		self.add(listView);
+		var array = [];
+		for (var i=0;i<availableForms.length;i++){
+			var label = Ti.UI.createLabel({
+				color:'#000000',
+				backgroundColor:'#ffffff',
+				text: availableForms[i].name,
+				height:'auto',
+				width:'auto',
 			});
-			self.add(listView);
-			
-			var currTop = 10;
-			for (var i=0;i<entryData.length;i++){
-				var label = Ti.UI.createLabel({
-					color:'#ffffff',
-					text: entryData[i][formDefinition.id],
-					height:'auto',
-					width:'auto',
-					bound: i
-				});
-				label.addEventListener('click',
-					function(e){
-						currentDatasetIndex = this.bound;
-						enterDataButton.fireEvent('click');
-					}
-				);
-				listView.add(label);
-			}
+			var row = Titanium.UI.createTableViewRow({
+				height:46
+			});
+			row.addEventListener('click',
+				function(e){
+					self.remove(listView);
+					self.selectFormInstance(this.children[0].text);
+				}
+			);
+			row.add(label);
+			array.push(row);
 		}
-	);
+		
+		var tableView = Ti.UI.createTableView({
+			top: 40,
+			data: array,
+			style:Titanium.UI.iPhone.TableViewStyle.GROUPED
+		});
+		
+		filterbox.addEventListener('change', function(e){
+			if (this.value.length) {
+				var currArray = [];
+				for (i=0;i<array.length;i++){
+					if (array[i].children[0].text.toLowerCase().indexOf(this.value.toLowerCase())>-1) {
+						currArray.push(array[i]);
+					}
+				}
+			} else {
+				currArray = array;
+			}
+			tableView.data = currArray;
+		});
+					
+		listView.add(tableView);
+
+	};
+	selectFormButton.addEventListener('click', self.selectForm);
+	
+	var viewDataset = self.viewDataset = function (){
+		var listView = Ti.UI.createView({
+			top: 0,
+			backgroundColor: '#ffffff',
+			width: '100%',
+			height: '100%',
+			zIndex: 1
+		});
+		
+		var cancel = Ti.UI.createButton({
+			top: 5,
+			left: 5,
+		    title: 'Cancel',
+		    width: 'auto',
+		    height:30
+		});
+		cancel.addEventListener('click', function(e){
+			self.remove(listView);
+		});
+
+		var filterbox = Ti.UI.createTextField({
+		    width: 200,
+		    top: 5,
+		    left: 100,
+		    height: 'auto',
+		    color: '#000000',
+		    backgroundColor: '#ffffff',
+		    borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED
+		});
+		
+		listView.add(cancel);
+		listView.add(filterbox);
+		
+		self.add(listView);
+		var array = [];
+		for (var i=0;i<entryData.length;i++){
+			var label = Ti.UI.createLabel({
+				color:'#000000',
+				backgroundColor:'#ffffff',
+				text: entryData[i][formDefinition.id],
+				height:'auto',
+				width:'auto',
+			});
+			var row = Titanium.UI.createTableViewRow({
+				height:46,
+				bound: i
+			});
+			row.addEventListener('click',
+				function(e){
+					currentDatasetIndex = this.bound;
+					currentDataset = entryData[currentDatasetIndex];
+					self.remove(listView);
+					enterDataButton.fireEvent('click');
+				}
+			);
+			row.add(label);
+			array.push(row);
+		}
+		
+		var tableView = Ti.UI.createTableView({
+			top: 40,
+			data: array,
+			style:Titanium.UI.iPhone.TableViewStyle.GROUPED
+		});
+		
+		filterbox.addEventListener('change', function(e){
+			if (this.value.length) {
+				var currArray = [];
+				for (i=0;i<array.length;i++){
+					if (array[i].children[0].text.toLowerCase().indexOf(this.value.toLowerCase())>-1) {
+						currArray.push(array[i]);
+					}
+				}
+			} else {
+				currArray = array;
+			}
+			tableView.data = currArray;
+		});
+					
+		listView.add(tableView);
+	};
+
+	viewDataButton.addEventListener('click', self.viewDataset);
 	
 	enterDataButton.addEventListener('click',
 		function(e) {
  
 			var tabGroup = Ti.UI.createTabGroup({
-				bottom: -500,
+				bottom: 0,
 				width: '100%',
 				height: '100%'
 			});
+ 
+			var currentControl = null;
  
  			var closeBtn = Ti.UI.createButton({
 				title: 'Done'
 			});
 			closeBtn.addEventListener('click',
 				function(e) {
-					tabGroup.animate({
-						duration: 400,
-						bottom: -500
-					},
-					function() {
-						tabGroup.close();
-					});
+					currentDatasetIndex = entryData.length;
+					currentDataset = {};
+					tabGroup.close();
 				}
 			);
 			
@@ -203,9 +495,16 @@ function FormView() {
 			});
 			nextBtn.addEventListener('click',
 				function(e){
+					// fill in default values for entries that were not chqnged by the user
+					for (i in formDefinition.fields){
+						if (formDefinition.fields.hasOwnProperty(i) && ! currentDataset.hasOwnProperty(i)){
+							currentDataset[i] = formDefinition.fields[i].value;
+						}
+					}
+					
 					entryData[currentDatasetIndex] = currentDataset;
 					currentDatasetIndex++;
-					currentDataset = {};
+					currentDataset = entryData[currentDatasetIndex] ? entryData[currentDatasetIndex] : {};
 					tabGroup.close();
 					enterDataButton.fireEvent('click');
 				}
@@ -268,15 +567,19 @@ function FormView() {
   								top: currTop,
   								left: 10,
  								width: 300,
- 								value: currentDataset[currField.name] ? currentDataset[currField.name] : (currField.value ? currField.value : ''),
+ 								value: currentDataset[currField.label] ? currentDataset[currField.label] : (currField.value ? currField.value : ''),
  								height: buttonHeight,
  								bound: [i,h]
 							});
 							textField.addEventListener('change', function(e){
-								currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]].name] = this.value;
+								currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]]] = this.value;
 							});
 							
 							tabScroll.add(textField);
+							if (h==0){
+								textField.focus();
+								currentControl = textField;
+							}
 							
 							currTop += 40;
 						break;
@@ -299,12 +602,12 @@ function FormView() {
   								top: currTop,
   								left: 10,
  								width: 250,
- 								value: currentDataset[currField.name] ? currentDataset[currField.name] : (currField.value ? currField.value : ''),
+ 								value: currentDataset[currField.label] ? currentDataset[currField.label] : (currField.value ? currField.value : ''),
  								height: buttonHeight,
  								bound: [i,h]
 							});
 							textField.addEventListener('change', function(e){
-								currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]].name] = this.value;
+								currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]]] = this.value;
 							});
 							
 							tabScroll.add(textField);
@@ -315,6 +618,10 @@ function FormView() {
 																	  height: buttonHeight,
 																	  bound: textField });
 							tabScroll.add(locationButton);
+							
+							if (h==0){
+								currentControl = locationButton;
+							}
 							
 							locationButton.addEventListener('click', function(e){
 								var loc = Ti.Geolocation;
@@ -351,8 +658,8 @@ function FormView() {
 							currTop += 60;
 							
 							var imageView = Titanium.UI.createImageView({
-											image: currentDataset[currField.name] ? currentDataset[currField.name] : currField.value,
-											height: 300,
+											image: currentDataset[currField.label] ? currentDataset[currField.label] : currField.value,
+											width: 'auto',
 											top: currTop,
 											bound: [i,h]
 										});
@@ -364,7 +671,7 @@ function FormView() {
 									saveToPhotoGallery: true,
 									success: function(e){
 										imageView.image = e.media;
-										currentDataset[formDefinition.groups[imageView.bound[0]].fields[imageView.bound[1]].name] = e.media;
+										currentDataset[formDefinition.groups[imageView.bound[0]].fields[imageView.bound[1]]] = e.media;
 									},
 									error: function(e){
 										alert('an error occurred while taking the picture');
@@ -375,6 +682,10 @@ function FormView() {
 									}
 								});
 							});
+							
+							if (h==0){
+								currentControl = cameraButton;
+							}
 							
 							currTop += 305;
 							
@@ -405,10 +716,14 @@ function FormView() {
 								}
 								picker.add(pickerValues);
 								
+								if (h==0){
+									currentControl = picker;
+								}
+								
 								if (Ti.Platform.osname === 'android') {
 									picker.bound = [i,h];
 									picker.addEventListener('change', function(e){
-										currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]].name] = this.getSelectedRow(0).title;
+										currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]]] = this.getSelectedRow(0).title;
 									});
 									picker.top = currTop;
 									picker.left = 10;
@@ -480,7 +795,7 @@ function FormView() {
 									done.bound = [i,h,textField];
 									done.addEventListener('click',function() {
 										this.bound[2].value = picker.getSelectedRow(0).title;
-										currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]].name] = this.bound[2].value;
+										currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]]] = this.bound[2].value;
 										picker_view.animate(slide_out);
 									});
 								
@@ -506,14 +821,18 @@ function FormView() {
 							tabScroll.add(textLabel);
 							currTop += 30;
 							
-							var valueSwitch = Ti.UI.createSwitch({ value: currentDataset[currField.name] ? currentDataset[currField.name] : (currField.value ? currField.value : false),
+							var valueSwitch = Ti.UI.createSwitch({ value: currentDataset[currField.label] ? currentDataset[currField.label] : (currField.value ? currField.value : false),
 																   bound: [i,h],
 																   titleOn:'yes',
   																   titleOff:'no',
 																   top: currTop });
 							valueSwitch.addEventListener('change', function(e){
-								currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]].name] = this.value;
+								currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]]] = this.value;
 							});
+							
+							if (h==0){
+								currentControl = valueSwitch;
+							}
 							
 							currTop += 40;
 							
@@ -525,15 +844,10 @@ function FormView() {
 					}
 				}
 				
-				tabGroup.addTab(tab); 				
+				tabGroup.addTab(tab);	
  			}
 
 			tabGroup.open();
-  
-			tabGroup.animate({
-				duration: 400,
-				bottom: 0
-			});
 		});
 				
 	return self;
