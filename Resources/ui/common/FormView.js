@@ -48,13 +48,9 @@ function FormView() {
 	    templateDir.createDirectory();
 	}
 	var templateFiles = templateDir.getDirectoryListing();
-	var templateInstances = [];
-	for(i=0;i<templateFiles.length;i++){
-		templateInstances.push(templateFiles[i].toString());
-	}
 	
 	// the cv directory holds all controlled vocabularies the user has downloaded
-	var cvDir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, 'cv');
+	var cvDir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, 'cvs');
 	if (! cvDir.exists()) {
 	    cvDir.createDirectory();
 	}
@@ -71,7 +67,7 @@ function FormView() {
 	for(i=0;i<instanciatedTemplates.length;i++){
 		var currentFormInstances = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data', instanciatedTemplates[i]).getDirectoryListing();
 		for (h=0;h<currentFormInstances.length;h++){
-			formInstances.push(currentFormInstances[i].toString() + ' [' + instanciatedTemplates[i].toString() + ']');
+			formInstances.push(currentFormInstances[h] + ' [' + instanciatedTemplates[i] + ']');
 		}
 	}
 
@@ -138,8 +134,8 @@ function FormView() {
 		});
 		
 		var items = ['load template from server','create new template'];
-		for (i=0;i<templateInstances.length;i++){
-			items.push(templateInstances[i]);
+		for (i=0;i<templateFiles.length;i++){
+			items.push(templateFiles[i]);
 		}
 		var fs = formComponents.filterSelect({ view: templateSelectView, items: items });
 		for (i=0;i<fs.length;i++){
@@ -156,8 +152,63 @@ function FormView() {
 					// an existing template was selected, load it
 					currentTemplateName = items[i];
 					templateSelectView.getParent().remove(templateSelectView);
-					self.loadTemplate();
+					self.showTemplateInstanceSelect();
 				}
+			});
+		}
+		
+		self.add(templateSelectView);
+	};
+	
+	self.showTemplateInstanceSelect = function(){
+		var templateSelectView = Ti.UI.createView({
+			top: 0,
+			backgroundColor: '#ffffff',
+			width: '100%',
+			height: '100%',
+			zIndex: 1
+		});
+		
+		var currentTemplateInstances = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data', currentTemplateName).getDirectoryListing();
+		currentTemplateInstances.unshift('');
+		var fs = formComponents.filterSelect({ view: templateSelectView, items: currentTemplateInstances });
+		fs[0].remove(fs[0].children[0]);
+		var newForm = Ti.UI.createTextField({
+		    width: 200,
+		    left: 10,
+		    hintText: 'enter new form name',
+		    height: 'auto',
+		    color: '#000000',
+		    backgroundColor: '#ffffff',
+		    borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED
+		});
+		var newButton = Ti.UI.createButton({
+			title: 'create',
+			left: 220
+		});
+		newButton.addEventListener('click',function(e){
+			// check if the chosen name is unique
+			for (i=0;i<currentTemplateInstances.length;i++){
+				if(currentTemplateInstances[i]==newForm.value){
+					alert('a form with that name already exists');
+					return false;
+				}
+			}
+			currentFormName = newForm.value;
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/'+currentTemplateName+'/'+currentFormName).write(JSON.stringify([]));
+			self.loadForm();
+			templateSelectView.parent.remove(templateSelectView);
+		});
+		fs[0].add(newForm);
+		fs[0].add(newButton);
+		for (i=1;i<fs.length;i++){
+			fs[i].bound = i;
+			fs[i].addEventListener('click', function(){
+				// an existing form was selected, load it
+				var i = this.bound;
+				currentFormName = currentTemplateInstances[i];
+				templateSelectView.getParent().remove(templateSelectView);
+				self.loadForm();
 			});
 		}
 		
@@ -193,24 +244,25 @@ function FormView() {
 		var missingCVs = [];
 		for (i in formDefinition.fields){
 			if (formDefinition.fields.hasOwnProperty(i)){
-				if (formDefinition.field[i].validation.substr(0,3).toLowerCase()=='cv-'){
-					var cv = formDefinition.field[i].validation.substr(3).toLowerCase;
+				if (formDefinition.fields[i].validation.substr(0,3).toLowerCase()=='cv-'){
+					var cv = formDefinition.fields[i].validation.substr(3).toLowerCase();
 					if (controlledVocabularies.hasOwnProperty(cv)){
 						continue;
 					}
 					var cvFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/cvs/'+cv);
-					if (cvFile.isFile()){
+					if (cvFile.read()){
 						controlledVocabularies[cv] = JSON.parse(cvFile.read().text);
 						continue;
 					}
 					missingCVs.push(cv);
-					
 				}
 			}
 		}
 		if (missingCVs.length){
-			alert("The following controlled vocabularies used by your form could not be found:\n"+join("\n", missingCVs));
+			alert("The following controlled vocabularies used by your form could not be found:\n"+missingCVs.join("\n"));
 			return false;
+		} else {
+			self.showFormOptions();
 		}
 	};
 
@@ -219,10 +271,10 @@ function FormView() {
 	self.loadTemplate = function(){
 		var templateAvailable = false;
 		var templateFile = null;
-		for (i=0;i<templateInstances.length;i++){
-			if (templateInstances[i]==currentTemplateName) {
+		for (i=0;i<templateFiles.length;i++){
+			if (templateFiles[i]==currentTemplateName) {
 				templateAvailable = true;
-				templateFile = templateFiles[i];
+				templateFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory + '/templates/' + currentTemplateName);
 				break;
 			}
 		}
@@ -231,8 +283,8 @@ function FormView() {
 			if (currentFormName){
 				return true;
 			} else {
-				// let the user pick a name
-				alert('name picking not implemented');
+				// something went wrong with the name picking
+				alert('could not instanciate template');
 			}
 		} else {
 			alert('The requested template "'+currentTemplateName+'" is not available on this device.');
@@ -262,7 +314,7 @@ function FormView() {
 			var currentControl = null;
  
  			var closeBtn = Ti.UI.createButton({
-				title: 'Done'
+				title: 'Back'
 		});
 		closeBtn.addEventListener('click',
 			function(e) {
@@ -287,8 +339,9 @@ function FormView() {
 				entryData[currentDatasetIndex] = currentDataset;
 				currentDatasetIndex++;
 				currentDataset = entryData[currentDatasetIndex] ? entryData[currentDatasetIndex] : {};
+				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/'+currentTemplateName+'/'+currentFormName).write(JSON.stringify(entryData));
+				self.renderForm();
 				tabGroup.close();
-				enterDataButton.fireEvent('click');
 			}
 		);
 
@@ -352,7 +405,7 @@ function FormView() {
 							left: 10,
 							width: 300,
 							value: currentDataset[currField.label] ? currentDataset[currField.label] : (currField.value ? currField.value : ''),
-							height: buttonHeight,
+							height: 'auto',
 							bound: [i,h]
 						});
 						textField.addEventListener('change', function(e){
@@ -387,7 +440,7 @@ function FormView() {
 							left: 10,
 							width: 250,
 							value: currentDataset[currField.label] ? currentDataset[currField.label] : (currField.value ? currField.value : ''),
-							height: buttonHeight,
+							height: 'auto',
 							bound: [i,h]
 						});
 						textField.addEventListener('change', function(e){
@@ -399,7 +452,7 @@ function FormView() {
 						var locationButton = Ti.UI.createButton({ title: 'get',
 															  	  top: currTop,
 																  left: 260,
-																  height: buttonHeight,
+																  height: 'auto',
 																  bound: textField });
 						tabScroll.add(locationButton);
 						
@@ -436,7 +489,7 @@ function FormView() {
 						var cameraButton = Ti.UI.createButton({ title: 'take picture',
 																top: currTop,
 																left: 200,
-																height: buttonHeight });
+																height: 'auto' });
 						tabScroll.add(cameraButton);
 						
 						currTop += 60;
@@ -564,7 +617,7 @@ function FormView() {
  									width: 300,
  									editable: false,
  									value: currentDataset[currField.name] ? currentDataset[currField.name] : (currField.value ? currField.value : ''),
- 									height: buttonHeight,
+ 									height: 'auto',
  									rightButton:drop_button,
 									rightButtonMode:Titanium.UI.INPUT_BUTTONMODE_ALWAYS,
 								});
@@ -717,7 +770,7 @@ function FormView() {
 		formView.add(buttons['back']);
 		buttons['export to email'].addEventListener('click',function(){
 			var emailDialog = Ti.UI.createEmailDialog();
-			emailDialog.subject = 'MetazenCollect Data Export - ' + formDefinition.label + ': ' + currentFormInstanceName;
+			emailDialog.subject = 'MetazenCollect Data Export - ' + formDefinition.label + ': ' + currentFormName;
 			emailDialog.messageBody = "MetazenCollect Data Export\n\nExport Template: " + currentTemplateName + "\nExport Form: " + currentFormName;
 			var f = Ti.Filesystem.getFile(Ti.Filesystem.getApplicationDataDirectory() + '/data/' + currentTemplateName + '/' + currentFormName);
 			emailDialog.addAttachment(f);
