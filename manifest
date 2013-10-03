@@ -1,9 +1,9 @@
 #appname:Metazen
-#appid:gov.anl.metagenomics.metazen
+#appid:gov.anl.mcs.paczian.metazen
 #type:mobile
 #guid:7339cd94-1f2e-4fad-8d57-d8b11200c0c2
 #version:1.0
-#publisher:tobiaspaczian
+#publisher:Tobias Paczian
 #url:http://metagenomics.anl.gov/metazen.cgi
 #image:appicon.png
 #desc:Enter metadata for your metagenomics experiment using controlled vocabularies.

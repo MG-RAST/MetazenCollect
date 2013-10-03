@@ -6,13 +6,13 @@
     <property name="acs-oauth-secret-development" type="string">yDC87B5DjF4GdeRW8WJt44Xw70Qk6ewR</property>
     <property name="acs-oauth-key-development" type="string">XAbo6uunoLLcNi3deFYNpAJPNDjH7qPP</property>
     <property name="acs-api-key-development" type="string">Vtt2QvPPbEeMkIJdC3JGv1vjXF4dxJvA</property>
-    <id>gov.anl.metagenomics.metazen</id>
+    <id>gov.anl.mcs.paczian.metazen</id>
     <name>Metazen</name>
     <version>1.0</version>
-    <publisher>tobiaspaczian</publisher>
+    <publisher>Tobias Paczian</publisher>
     <url>http://metagenomics.anl.gov/metazen.cgi</url>
     <description>Enter metadata for your metagenomics experiment using controlled vocabularies.</description>
-    <copyright>2013 by tobiaspaczian</copyright>
+    <copyright>2013 by Tobias Paczian</copyright>
     <icon>MGRAST_logo.png</icon>
     <persistent-wifi>false</persistent-wifi>
     <prerendered-icon>false</prerendered-icon>
@@ -47,11 +47,12 @@
         <module platform="commonjs">ti.cloud</module>
     </modules>
     <deployment-targets>
+        <target device="tizen">false</target>
         <target device="blackberry">false</target>
         <target device="android">true</target>
         <target device="ipad">true</target>
         <target device="iphone">true</target>
         <target device="mobileweb">true</target>
     </deployment-targets>
-    <sdk-version>3.0.2.GA</sdk-version>
+    <sdk-version>3.1.2.GA</sdk-version>
 </ti:app>
