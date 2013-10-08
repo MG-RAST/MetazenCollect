@@ -1,13 +1,28 @@
-function FormComponents(){
-	// set platform specific variables
-	var buttonHeight = 35;
+function FormComponents(){	
+	//render appropriate components based on the platform and form factor
+	var osname = Ti.Platform.osname,
+		version = Ti.Platform.version,
+		maxHeight = Ti.Platform.displayCaps.platformHeight,
+		maxWidth = Ti.Platform.displayCaps.platformWidth;
+	
+	//considering tablet to have one dimension over 900px
+	var isTablet = osname === 'ipad' || (osname === 'android' && (maxWidth > 899 || maxHeight > 899));
 	var isAndroid = false;
-	if (Ti.Platform.osname === 'android') {
-		buttonHeight = 50;
+	if (osname === 'android') {
 		isAndroid = true;
 	}
 	
-	var buttonWidth = 220;
+	// set platform specific variables
+	var buttonHeight = 35;	
+	var buttonWidth = '95%';
+	var buttonFont = {fontSize: 25 };
+	var minButtonWidth = 120;
+	var labelFont = { fontSize: 25 };
+	
+	if (isTablet) {
+		minButtonWidth = 200;
+		buttonHeight = 85;
+	}
 	
 	var self = {
 		buttonMenu: function(params){
@@ -17,6 +32,7 @@ function FormComponents(){
 				buttons[params[i]] = Ti.UI.createButton({
 					title: params[i],
 					top: currTop,
+					font: buttonFont,
 					width: buttonWidth,
 					height: buttonHeight,
 				});
@@ -28,12 +44,13 @@ function FormComponents(){
 		},
 		labelList: function(params){
 			var labellist = { labels: [], positions: []};
-			var currTop = params.start || 10;
+			var currTop = params.start || 15 + buttonHeight;
 			for (i=0;i<params.labels.length;i++) {
 				var l = Ti.UI.createLabel({
 					color:'#ffffff',
 					text: params.labels[i],
 					top: currTop,
+					font: buttonFont,
 					left: 10,
 					height:'auto',
 					width:'auto'
@@ -50,13 +67,14 @@ function FormComponents(){
 		filterSelect: function(params){
 			var skipRows = params.skipRows || 0;
 			var listView = params.view;
-			var rowHeight = params.rowHeight || 46;
+			var rowHeight = params.rowHeight || buttonHeight;
 			var cancel = Ti.UI.createButton({
 				top: 5,
 				left: 5,
 			    title: params.cancelTitle || 'Cancel',
-			    width: 80,
-			    height:30
+				width: minButtonWidth,
+				height: buttonHeight,
+			
 			});
 			self.styleButton(cancel);
 			cancel.addEventListener('click', function(){
@@ -67,13 +85,13 @@ function FormComponents(){
 			});
 
 			var filterbox = Ti.UI.createTextField({
-			    width: 200,
+			    width: maxWidth - 10 - minButtonWidth,
 			    top: 5,
-			    left: 100,
-			    height: 'auto',
+			    left: minButtonWidth + 10,
+			    height: buttonHeight,
 			    hintText: 'enter text to filter',
 			    color: '#000000',
-			    backgroundColor: '#000000',
+			    backgroundColor: '#ffffff',
 			    borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED
 			});
 		
@@ -87,6 +105,7 @@ function FormComponents(){
 					color:'#000000',
 					backgroundColor:'#ffffff',
 					text: params.items[i],
+					font: labelFont,
 					height:'auto',
 					width:'auto',
 				});
@@ -111,7 +130,7 @@ function FormComponents(){
 			}
 		
 			var tableView = Ti.UI.createTableView({
-				top: 40 + (skipRows * rowHeight),
+				top: buttonHeight + 10 + (skipRows * rowHeight),
 				data: array,
 				style:Titanium.UI.iPhone.TableViewStyle.GROUPED
 			});
@@ -148,6 +167,8 @@ function FormComponents(){
 				zIndex: 3
 			});
 			var cancel = Ti.UI.createButton({
+				width: minButtonWidth,
+				height: buttonHeight,
 				top: 5,
 				left: 5,
 			    title: params.cancelTitle || 'Cancel'
@@ -167,6 +188,7 @@ function FormComponents(){
 					color: (params.items[i]==params.defaultValue) ? '#ffffff' : '#000000',
 					text: params.items[i],
 					height:'auto',
+					font: labelFont,
 					width:'auto'
 				});
 				var row = Titanium.UI.createTableViewRow({
@@ -188,7 +210,7 @@ function FormComponents(){
 			}
 		
 			var tableView = Ti.UI.createTableView({
-				top: 40 + (rowHeight * skipRows),
+				top: buttonHeight + (rowHeight * skipRows),
 				data: array,
 				style:Titanium.UI.iPhone.TableViewStyle.GROUPED
 			});
@@ -214,7 +236,7 @@ function FormComponents(){
 		},
 		styleButton: function(button){
 			button.color = '#ffffff';
-			button.font = { fontSize: 16 };
+			button.font = buttonFont;
 			button.backgroundGradient = {
 				type: 'linear',
 		        startPoint: { x: '50%', y: '0%' },
@@ -239,12 +261,12 @@ function FormComponents(){
 			var dialog = null;
 			if (isAndroid){
 			    var view = Ti.UI.createView({
-			        width : 200,
+			        width : isTablet ? 400 : 200,
 			        height : 200
 			    });
 			    var v2 = Ti.UI.createView({
 			        wrap : false,
-			        width : 300,
+			        width : isTablet ? 600 : 300,
 			        height : 220
 			    });
 			    view.add(v2);
@@ -253,7 +275,8 @@ function FormComponents(){
 					title: 'OK',
 					bottom: 10,
 					left: 10,
-					width: 100
+					width: minButtonWidth,
+					height: buttonHeight,
 				});
 				okButton.addEventListener('click',function(){
 					dialog.fireEvent('click',{
@@ -266,7 +289,8 @@ function FormComponents(){
 					title: 'cancel',
 					bottom: 10,
 					right: 10,
-					width: 100
+					width: minButtonWidth,
+					height: buttonHeight,
 				});
 				cancelButton.addEventListener('click',function(){
 					dialog.fireEvent('click',{
@@ -277,6 +301,7 @@ function FormComponents(){
 				var messageLabel = Ti.UI.createLabel({
 					text: params.title || "",
 					top: 10,
+					font: labelFont,
 					width: 'auto',
 					height: 'auto',
 					color: '#ffffff'

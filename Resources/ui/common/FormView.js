@@ -78,11 +78,24 @@ function FormView() {
 	}
 	var formInstances = [];
 	var instanciatedTemplates = dataDir.getDirectoryListing();
-	for(i=0;i<instanciatedTemplates.length;i++){
+	for(var i=0;i<instanciatedTemplates.length;i++){
 		var currentFormInstances = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data', instanciatedTemplates[i]).getDirectoryListing();
-		for (h=0;h<currentFormInstances.length;h++){
+		for (var h=0;h<currentFormInstances.length;h++){
 			formInstances.push(currentFormInstances[h] + ' [' + instanciatedTemplates[i] + ']');
 		}
+	}
+	
+	//render appropriate components based on the platform and form factor
+	var osname = Ti.Platform.osname,
+		version = Ti.Platform.version,
+		maxHeight = Ti.Platform.displayCaps.platformHeight,
+		maxWidth = Ti.Platform.displayCaps.platformWidth;
+	
+	//considering tablet to have one dimension over 900px
+	var isTablet = osname === 'ipad' || (osname === 'android' && (maxWidth > 899 || maxHeight > 899));
+	var isAndroid = false;
+	if (osname === 'android') {
+		isAndroid = true;
 	}
 
 	// initialize variables that hold the current form-definition, required cvs and the entered data
@@ -104,8 +117,18 @@ function FormView() {
 	var buttonSideMargin = 5;
 	var buttonTopMargin  = 40;
 	var searchFieldWidth = 200;
-	var firstRowOffset   = 75;
 	var backTitle        = 'back';
+	var minButtonHeight  = 35;
+	var minButtonWidth   = 120;
+	var globalLineHeight = 40;
+	var labelFont = {fontSize: 25 };
+	
+	if (isTablet) {
+		searchFieldWidth = 400;
+		minButtonHeight  = 85;
+		minButtonWidth   = 200;
+		globalLineHeight = 60;	
+	}
 
 	/*
 	 * 
@@ -132,6 +155,7 @@ function FormView() {
 			color: '#ffffff',
 			text: 'Welcome to MetazenCollect',
 			height:'auto',
+			font: labelFont,
 			width:'auto',
 			top: 10
 		});
@@ -149,7 +173,7 @@ function FormView() {
 		});
 		
 		var fs = formComponents.filterSelect({ view: formSelectView, items: formInstances });
-		for (i=0;i<fs.length;i++){
+		for (var i=0;i<fs.length;i++){
 			fs[i].bound = i;
 			fs[i].addEventListener('click', function(){
 				var i = this.bound;
@@ -174,7 +198,7 @@ function FormView() {
 		
 		var currentTemplateInstances = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data', currentTemplateName).getDirectoryListing();
 		var fs = formComponents.filterSelect({ view: templateSelectView, items: templateFiles });
-		for (i=0;i<fs.length;i++){
+		for (var i=0;i<fs.length;i++){
 			fs[i].bound = i;
 			fs[i].addEventListener('click', function(){
 				currentTemplateName = templateFiles[this.bound];
@@ -183,7 +207,7 @@ function FormView() {
 				});
 				dialog.addEventListener('click', function(e){
 					if(e.index==0){
-						for (i=0;i<currentTemplateInstances.length;i++){
+						for (var i=0;i<currentTemplateInstances.length;i++){
 							if(currentTemplateInstances[i]==e.text){
 								alert('a form with that name already exists');
 								dialog.show();
@@ -227,13 +251,15 @@ function FormView() {
 		    borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED
 		});
 		var newButton = Ti.UI.createButton({
+			width: minButtonWidth,
+			height: minButtonHeight,
 			title: 'create',
 			left: 220
 		});
 		formComponents.styleButton(newButton);
 		newButton.addEventListener('click',function(e){
 			// check if the chosen name is unique
-			for (i=0;i<currentTemplateInstances.length;i++){
+			for (var i=0;i<currentTemplateInstances.length;i++){
 				if(currentTemplateInstances[i]==newForm.value){
 					alert('a form with that name already exists');
 					return false;
@@ -246,7 +272,7 @@ function FormView() {
 		});
 		fs[0].add(newForm);
 		fs[0].add(newButton);
-		for (i=1;i<fs.length;i++){
+		for (var i=1;i<fs.length;i++){
 			fs[i].bound = i;
 			fs[i].addEventListener('click', function(){
 				// an existing form was selected, load it
@@ -273,13 +299,14 @@ function FormView() {
 		var titleLabel = Ti.UI.createLabel({
 			text: 'Edit Template: '+currentTemplateName,
 			top: 10,
+			font: labelFont,
 			width: 'auto',
 			height: 'auto',
 			color: '#ffffff'
 		});
 		editorView.add(titleLabel);
 
-		var buttons = formComponents.buttonMenu(['spacer','general properties','groups','fields','export to email','export to MG-RAST', 'spacer2', 'back']);
+		var buttons = formComponents.buttonMenu(['spacer','general properties','groups','export to email','export to MG-RAST', 'spacer2', backTitle]);
 		buttons['general properties'].addEventListener('click',function(){
 			self.generalPropertyEditor();
 			editorView.getParent().remove(editorView);
@@ -290,23 +317,78 @@ function FormView() {
 			editorView.getParent().remove(editorView);
 		});
 		editorView.add(buttons['groups']);
-		buttons['fields'].addEventListener('click',function(){
-			self.fieldEditor();
-			editorView.getParent().remove(editorView);
-		});
-		editorView.add(buttons['fields']);
 		buttons['export to email'].addEventListener('click',function(){
-			alert('hello world');
+			var emailDialog = Ti.UI.createEmailDialog();
+			emailDialog.subject = "Metadata Template Export: "+currentTemplateName;
+			emailDialog.toRecipients = [];
+			emailDialog.messageBody = "Metadata Template Export of "+currentTemplateName+"\n\nThe template is attached as a JSON file";
+			var f = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName);
+			emailDialog.addAttachment(f);
+			emailDialog.open();
 		});
 		editorView.add(buttons['export to email']);
 		buttons['export to MG-RAST'].addEventListener('click',function(){
-			alert('schmello world');
+			var shockURL = "http://140.221.84.144:8000/node";
+			var client = Ti.Network.createHTTPClient({
+		     	onload : function(e) {
+		     		var result = JSON.parse(this.responseText);
+		     		if (result.error) {
+		     			alert(result.error);
+		     		} else {
+			     		var templateURL = "http://api.metagenomics.anl.gov/validate/template/"+result.data.id;
+						var client2 = Ti.Network.createHTTPClient({
+					     	onload : function(e) {
+					     		result = JSON.parse(this.responseText);
+					     		if (result.error) {
+					     			alert(result.error);
+					     		} else {
+					     			alert('your template was posted successfully');
+					     		}
+						    },
+					     	onerror : function(e) {
+					         	alert('error: '+e.error);
+								templateView.getParent().remove(templateView);
+					     	},
+					     	timeout : 5000  // in milliseconds
+						 });
+						 // Prepare the connection.
+				 		client2.open("GET", templateURL);
+				 		// Send the request.
+				 		client2.send();
+			 		}
+		    },
+	     	onerror : function(e) {
+	         	alert('error: '+e.error);
+				templateView.getParent().remove(templateView);
+	     	},
+	     	timeout : 5000  // in milliseconds
+		 });
+		 
+			 
+		 // create a header
+		 var boundary = '----12345568790';  
+		 var header = "--" + boundary + "\r\n";  
+		 header += "Content-Disposition: form-data; name=\"attributes\";";  
+		 header += "filename=\"" + currentTemplateName + "\"\r\n"; 
+		 header += "Content-Type: application/octet-stream\r\n\r\n";
+		 
+		 var fullContent = header + JSON.stringify(formDefinition) + "\r\n--" + boundary + "--"; 
+		 
+		 // Prepare the connection.
+ 		 client.open("POST", shockURL);
+ 		 var token = "un=paczian|tokenid=07806e3c-2cfd-11e3-bb07-12313809f035|expiry=1412431101|client_id=paczian|token_type=Bearer|SigningSubject=https://nexus.api.globusonline.org/goauth/keys/07c63674-2cfd-11e3-bb07-12313809f035|sig=3d6d0aa4cfc14ea2406105257cb2e76ec91fa7c32ccf137e37ec2f5e3313639f3e8c2bfe4fbbae4c8bb91de8c66498251986cfe9d2e3336e736bd48cfbe9b5c3f16baabcf1b2801cf7858b0a275e1e7b275dc7c5576ef7c5b47016157de691fddc2de759af84b2390989d3350464daac59352f4de9baf76b723bfc389711a33a";
+ 		 client.setRequestHeader("Authorization", "OAuth "+token);
+ 		 client.setRequestHeader("Content-type", "multipart/form-data; boundary=\"" + boundary + "\"");  
+   		 client.setRequestHeader("Connection", "close");  
+
+ 		 // Send the request.
+ 		 client.send(fullContent);
 		});
 		editorView.add(buttons['export to MG-RAST']);
-		buttons['back'].addEventListener('click',function(){
+		buttons[backTitle].addEventListener('click',function(){
 			editorView.getParent().remove(editorView);
 		});
-		editorView.add(buttons['back']);
+		editorView.add(buttons[backTitle]);
 
 		self.add(editorView);
 	};
@@ -324,6 +406,7 @@ function FormView() {
 		var titleLabel = Ti.UI.createLabel({
 			text: formDefinition.name,
 			top: 10,
+			font: labelFont,
 			width: 'auto',
 			height: 'auto',
 			color: 'white',
@@ -332,7 +415,9 @@ function FormView() {
 		listView.add(titleLabel);
 	
 		var okButton = Ti.UI.createButton({
-			top: 5,
+			width: minButtonWidth,
+			height: minButtonHeight,
+			top: buttonTopMargin,
 			right: buttonSideMargin,
 		    title: backTitle
 		});
@@ -349,75 +434,43 @@ function FormView() {
 		tr2 = tr2.rotate(270);
 		
 		var array = [];
-		for (var i=0;i<formDefinition.groups.length;i++){
-			var label = Ti.UI.createLabel({
-				color: '#000000',
-				text: formDefinition.groups[i].label,
-				height:'auto',
-				width:'auto'
-			});
-			
-			var upButton =  Ti.UI.createButton({
-				left: buttonSideMargin,
-				style:Ti.UI.iPhone.SystemButton.DISCLOSURE,
-				transform:tr2,
-				bound:i,
-				bubbleParent: false
-			});
-			upButton.addEventListener('click', function(){
-				var x = formDefinition.groups[this.bound];
-				formDefinition.groups[this.bound] = formDefinition.groups[this.bound-1];
-				formDefinition.groups[this.bound-1] = x;
-				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
-				self.groupEditor();
-				listView.getParent().remove(listView);
-			});
-			var downButton =  Ti.UI.createButton({
-				right: buttonSideMargin,
-				style:Ti.UI.iPhone.SystemButton.DISCLOSURE,
-				transform:tr1,
-				bound: i,
-				bubbleParent: false
-			});
-			downButton.addEventListener('click', function(){
-				var x = formDefinition.groups[this.bound];
-				formDefinition.groups[this.bound] = formDefinition.groups[this.bound+1];
-				formDefinition.groups[this.bound+1] = x;
-				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
-				self.groupEditor();
-				listView.getParent().remove(listView);
-			});
-			var row = Titanium.UI.createTableViewRow({
-				height:46,
-				backgroundColor: '#ffffff',
-				bound: i
-			});
-			row.addEventListener('click', function(){
-				currentGroup = formDefinition.groups[this.bound];
-				self.editGroup();
-			});
-			row.add(label);
-			if (i>0) {
-				row.add(upButton);
+		for (var i in formDefinition.groups){
+			if (formDefinition.groups.hasOwnProperty(i)) {
+				var label = Ti.UI.createLabel({
+					color: '#000000',
+					font: labelFont,
+					text: formDefinition.groups[i].label,
+					height:'auto',
+					width:'auto'
+				});
+				var row = Titanium.UI.createTableViewRow({
+					height:minButtonHeight,
+					backgroundColor: '#ffffff',
+					bound: i
+				});
+				row.addEventListener('click', function(){
+					currentGroup = formDefinition.groups[this.bound];
+					self.editGroup();
+				});
+				row.add(label);
+				array.push(row);
 			}
-			if (i<formDefinition.groups.length-1){
-				row.add(downButton);
-			}
-			array.push(row);
 		}
 		
 		var newText = Ti.UI.createTextField({
 			color: '#000000',
 			hintText: 'new group name',
-			height:'auto',
-			width:210,
+			height: minButtonHeight,
+			width: maxWidth - 20 - (minButtonWidth * 2),
 			left: buttonSideMargin,
 			top: buttonTopMargin,
 		    borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED
 		});
 		var newTextButton = Ti.UI.createButton({
+			width: minButtonWidth,
+			height: minButtonHeight,
 			title: 'create',
-			right: buttonSideMargin,
+			right: buttonSideMargin + 10 + minButtonWidth,
 			top: buttonTopMargin
 		});
 		newTextButton.addEventListener('click',function(){
@@ -440,7 +493,7 @@ function FormView() {
 		listView.add(newText);
 		
 		var tableView = Ti.UI.createTableView({
-			top: firstRowOffset,
+			top: buttonTopMargin + 10 + minButtonHeight,
 			data: array,
 			style:Titanium.UI.iPhone.TableViewStyle.GROUPED
 		});
@@ -448,6 +501,117 @@ function FormView() {
 		listView.add(tableView);
 		
 		self.add(listView);
+	};
+	
+	self.editGroupProperties = function(){
+		var editGroupPropertiesView = Ti.UI.createScrollView({
+			top: 0,
+			zIndex: 2,
+			backgroundColor: '#000000',
+			width: '100%',
+			height: '100%'
+		});
+		
+		var labellist = formComponents.labelList({view: editGroupPropertiesView, labels: [
+			'name',
+			'label',
+			'description',
+			'mandatory',
+			'toplevel'
+		]});
+		
+		var cancelButton = Ti.UI.createButton({
+			width: minButtonWidth,
+			height: minButtonHeight,
+			title: 'cancel',
+			top: 10,
+			left: buttonSideMargin
+		});
+		cancelButton.addEventListener('click',function(){
+			self.templateEditor();
+			editGroupPropertiesView.getParent().remove(editGroupPropertiesView);
+		});
+		formComponents.styleButton(cancelButton);
+		
+		var okButton = Ti.UI.createButton({
+			width: minButtonWidth,
+			height: minButtonHeight,
+			title: 'store',
+			top: 10,
+			right: buttonSideMargin
+		});
+		okButton.addEventListener('click',function(){
+			currentGroup.name = nameField.value;
+			currentGroup.label = labelField.value;
+			currentGroup.description = descriptionField.value;
+			currentGroup.toplevel = toplevelField.value ? 1 : 0;
+			currentGroup.mandatory = mandatoryField.value ? 1 : 0;
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
+			alert('changes stored');
+			self.editGroup();
+			editGroupPropertiesView.getParent().remove(editGroupPropertiesView);
+		});
+		formComponents.styleButton(okButton);
+		
+		editGroupPropertiesView.add(cancelButton);
+		editGroupPropertiesView.add(okButton);
+		
+		var nameField = Ti.UI.createTextField({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: '#000000',
+			top: labellist.positions[0],
+			right: 10,
+			width: searchFieldWidth,
+			value: currentGroup.name || currentGroup.label,
+			height: 'auto'
+		});
+		editGroupPropertiesView.add(nameField);
+		
+		var labelField = Ti.UI.createTextField({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: '#000000',
+			top: labellist.positions[1],
+			right: 10,
+			width: searchFieldWidth,
+			value: currentGroup.label,
+			height: 'auto'
+		});
+		editGroupPropertiesView.add(labelField);
+		
+		var descriptionField = Ti.UI.createTextArea({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: '#000000',
+			top: labellist.positions[2],
+			right: 10,
+			width: searchFieldWidth,
+			value: currentGroup.description,
+			height: 'auto'
+		});
+		editGroupPropertiesView.add(descriptionField);
+		
+		var mandatoryField = Ti.UI.createSwitch({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: '#000000',
+			top: labellist.positions[3],
+			right: 10,
+			width: searchFieldWidth,
+			value: currentGroup.mandatory ? true : false,
+			height: 'auto'
+		});
+		editGroupPropertiesView.add(mandatoryField);
+		
+		var toplevelField = Ti.UI.createSwitch({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: '#000000',
+			top: labellist.positions[4],
+			right: 10,
+			width: searchFieldWidth,
+			value: currentGroup.toplevel ? true : false,
+			height: 'auto'
+		});
+		editGroupPropertiesView.add(toplevelField);
+		
+		self.add(editGroupPropertiesView);
 	};
 	
 	self.editGroup = function(){
@@ -458,20 +622,7 @@ function FormView() {
 			width: '100%',
 			height: '100%'
 		});
-	
-		var okButton = Ti.UI.createButton({
-			top: 5,
-			right: buttonSideMargin,
-		    title: backTitle
-		});
-		formComponents.styleButton(okButton);
-		okButton.addEventListener('click', function(){
-			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
-			self.groupEditor();
-			editGroupView.getParent().remove(editGroupView);
-		});
-		editGroupView.add(okButton);
-		
+			
 		var titleLabel = Ti.UI.createLabel({
 			text: currentGroup.name,
 			top: 10,
@@ -488,172 +639,73 @@ function FormView() {
 		tr2 = tr2.rotate(270);
 		
 		var array = [];
-		for (i in currentGroup.fields){
+		for (var i in currentGroup.fields){
 			if (currentGroup.fields.hasOwnProperty(i)) {
 				var label = Ti.UI.createLabel({
 					color: '#000000',
-					text: formDefinition.fields[currentGroup.fields[i]].label,
+					text: currentGroup.fields[i].label || currentGroup.fields[i].name || i,
 					height:'auto',
 					width:'auto'
 				});
-			
-				var upButton =  Ti.UI.createButton({
-					left: buttonSideMargin,
-					style:Ti.UI.iPhone.SystemButton.DISCLOSURE,
-					transform:tr2,
-					bound:i,
-					bubbleParent: false
-				});
-				upButton.addEventListener('click', function(){
-					var x = currentGroup.fields[this.bound];
-					currentGroup.fields[this.bound] = currentGroup.fields[this.bound-1];
-					currentGroup.fields[this.bound-1] = x;
-					Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
-					self.editGroup();
-					editGroupView.getParent().remove(editGroupView);
-				});
-				var downButton =  Ti.UI.createButton({
-					right: buttonSideMargin,
-					style:Ti.UI.iPhone.SystemButton.DISCLOSURE,
-					transform:tr1,
-					bound: i,
-					bubbleParent: false
-				});
-				downButton.addEventListener('click', function(){
-					var x = currentGroup.fields[this.bound];
-					currentGroup.fields[this.bound] = currentGroup.fields[this.bound+1];
-					currentGroup.fields[this.bound+1] = x;
-					Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
-					self.editGroup();
-					editGroupView.getParent().remove(editGroupView);
-				});
 				var row = Titanium.UI.createTableViewRow({
-					height:46,
+					height:minButtonHeight,
 					backgroundColor: '#ffffff',
 					bound: i
 				});
 				row.addEventListener('click', function(){
-					
-					var dialog = Ti.UI.createOptionDialog({
-					  cancel: 0,
-					  options: ['Cancel', 'OK'],
-					  selectedIndex: 0,
-					  destructive: 1,
-					  title: 'Remove this field?'
-					});
-					dialog.bound = this.bound;
-					dialog.addEventListener('click',function(e){
-					    if (e.index == 1){
-					    	currentGroup.fields.splice(this.bound, 1);
-					    	Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
-							self.editGroup();
-							editGroupView.getParent().remove(editGroupView);
-					    }
-					});
-					dialog.show();
+					currentField = currentGroup.fields[i];
+					self.editField();
 				});
 				row.add(label);
-				if (i>0) {
-					row.add(upButton);
-				}
-				if (i<formDefinition.groups.length-1){
-					row.add(downButton);
-				}
 				array.push(row);
 			}
 		}
 		
-		// select box
-		var availableFields = [];
-		var availFieldsHash = {};
-		for (i in formDefinition.fields){
-			if (formDefinition.fields.hasOwnProperty(i)){
-				availFieldsHash[i] = 1;
-			}
-		}
-		for (i=0;i<formDefinition.groups.length;i++){
-			for (h=0;h<formDefinition.groups[i].fields.length;h++){
-				delete availFieldsHash[formDefinition.groups[i].fields[h]];
-			}
-		}
-		for (i in availFieldsHash){
-			if (availFieldsHash.hasOwnProperty(i)){
-				availableFields.push(i);
-			}
-		}
-		
-		var selectView = Ti.UI.createScrollView({
-			top: 0,
-			backgroundColor: '#000000',
-			width: '100%',
-			height: '100%',
-			zIndex: 3
-		});
-
+		var smallButton = parseInt(minButtonWidth * 0.7);
 		var addNewButton =  Ti.UI.createButton({
 			title: 'add field',
-			width: 100,
-			height: 30,
+			width: smallButton,
+			height: minButtonHeight,
 			left: buttonSideMargin,
 			top: buttonTopMargin
 		});
 		formComponents.styleButton(addNewButton);
 		addNewButton.addEventListener('click', function(e){
-			if (availableFields.length>0){
-				editGroupView.add(selectView);
-				formComponents.filterSelect({
-					view: selectView,
-					items: availableFields,
-					callback: function(field){
-						currentGroup.fields.push(field);
-						Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
-						self.editGroup();
-						editGroupView.getParent().remove(editGroupView);
-					}
-				});
-			} else {
-				alert('all fields of this form are already in use');
-			}
+			self.editField();
 		});
 		editGroupView.add(addNewButton);
 		
-		var renameGroup =  Ti.UI.createButton({
-			title: 'rename',
-			width: 100,
-			height: 30,
+		var addNewSubgroupButton =  Ti.UI.createButton({
+			title: 'add group',
+			width: smallButton,
+			height: minButtonHeight,
+			left: buttonSideMargin + 5 + smallButton,
 			top: buttonTopMargin
 		});
-		formComponents.styleButton(renameGroup);
-		renameGroup.addEventListener('click', function(e){
-			var dialog = formComponents.alertDialog({
-				title: 'Enter new group name'
-			});
-			dialog.addEventListener('click', function(e){
-				if(e.index==0){
-					for (i=0;i<formDefinition.groups.length;i++){
-						if(formDefinition.groups[i].name==e.text){
-							alert('a group with that name already exists');
-							dialog.show();
-							return false;
-						}
-					}
-					currentGroup.label = e.text;
-					currentGroup.name = e.text;
-					Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
-					
-					self.editGroup();
-					editGroupView.getParent().remove(editGroupView);
-				}
-			});
-			dialog.show();
+		formComponents.styleButton(addNewSubgroupButton);
+		addNewButton.addEventListener('click', function(e){
+			self.addSubgroup();
 		});
-		editGroupView.add(renameGroup);
+		editGroupView.add(addNewSubgroupButton);
+		
+		var generalGroupProperties =  Ti.UI.createButton({
+			title: 'edit properties',
+			width: smallButton,
+			height: minButtonHeight,
+			top: buttonTopMargin,
+			left: buttonSideMargin + 10 + (2 * smallButton) 
+		});
+		formComponents.styleButton(generalGroupProperties);
+		generalGroupProperties.addEventListener('click', function(e){
+			self.editGroupProperties();
+		});
+		editGroupView.add(generalGroupProperties);
 		
 		var delGroup =  Ti.UI.createButton({
 			title: 'delete group',
-			width: 100,
-			height: 30,
-			right: buttonSideMargin,
+			width: smallButton,
+			height: minButtonHeight,
+			left: buttonSideMargin + 15 + (smallButton * 3),
 			top: buttonTopMargin
 		});
 		formComponents.styleButton(delGroup);
@@ -689,8 +741,23 @@ function FormView() {
 		});
 		editGroupView.add(delGroup);
 		
+		var back =  Ti.UI.createButton({
+			title: backTitle,
+			width: smallButton,
+			height: minButtonHeight,
+			top: buttonTopMargin,
+			left: buttonSideMargin + 20 + (4 * smallButton) 
+		});
+		formComponents.styleButton(back);
+		back.addEventListener('click', function(e){
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
+			self.groupEditor();
+			editGroupView.getParent().remove(editGroupView);
+		});
+		editGroupView.add(back);
+		
 		var tableView = Ti.UI.createTableView({
-			top: firstRowOffset,
+			top: buttonTopMargin + 10 + minButtonHeight,
 			data: array,
 			style:Titanium.UI.iPhone.TableViewStyle.GROUPED
 		});
@@ -698,6 +765,11 @@ function FormView() {
 		editGroupView.add(tableView);
 		
 		self.add(editGroupView);
+	};
+	
+	// add a subgroup to a group
+	self.addSubgroup = function(){
+		alert('adding subgroup');
 	};
 	
 	// show the general property editor
@@ -710,13 +782,15 @@ function FormView() {
 			zIndex: 1
 		});
 		
-		var labellist = formComponents.labelList({view: propertySelectView, start: 55, labels: [
+		var labellist = formComponents.labelList({view: propertySelectView, labels: [
 			'name',
 			'label',
 			'description'
 		]});
 		
 		var cancelButton = Ti.UI.createButton({
+			width: minButtonWidth,
+			height: minButtonHeight,
 			title: 'cancel',
 			top: 10,
 			left: buttonSideMargin
@@ -728,6 +802,8 @@ function FormView() {
 		formComponents.styleButton(cancelButton);
 		
 		var okButton = Ti.UI.createButton({
+			width: minButtonWidth,
+			height: minButtonHeight,
 			title: 'store',
 			top: 10,
 			right: buttonSideMargin
@@ -750,7 +826,7 @@ function FormView() {
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: '#000000',
 			top: labellist.positions[0],
-			left: 120,
+			right: 10,
 			width: searchFieldWidth,
 			value: formDefinition.name || formDefinition.label,
 			height: 'auto'
@@ -761,29 +837,18 @@ function FormView() {
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: '#000000',
 			top: labellist.positions[1],
-			left: 120,
+			right: 10,
 			width: searchFieldWidth,
 			value: formDefinition.label,
 			height: 'auto'
 		});
 		propertySelectView.add(labelField);
 		
-		var ownerField = Ti.UI.createTextField({
-			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
-			color: '#000000',
-			top: labellist.positions[2],
-			left: 120,
-			width: searchFieldWidth,
-			value: formDefinition.owner,
-			height: 'auto'
-		});
-		propertySelectView.add(ownerField);
-		
 		var descriptionField = Ti.UI.createTextArea({
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: '#000000',
-			top: labellist.positions[3],
-			left: 120,
+			top: labellist.positions[2],
+			right: 10,
 			width: searchFieldWidth,
 			value: formDefinition.description,
 			height: 'auto'
@@ -791,68 +856,6 @@ function FormView() {
 		propertySelectView.add(descriptionField);
 		
 		self.add(propertySelectView);
-	};
-	
-	// show a list of fields available in the current template
-	// and allow updating and adding of new fields
-	self.fieldEditor = function(){
-		var fieldSelectView = Ti.UI.createView({
-			top: 0,
-			backgroundColor: '#000000',
-			width: '100%',
-			height: '100%',
-			zIndex: 1
-		});
-		
-		var fields = [];
-		for (i in formDefinition.fields){
-			if (formDefinition.fields.hasOwnProperty(i)){
-				fields.push(i);
-			}
-		}
-		fields = fields.sort();
-		var fs = formComponents.filterSelect({ cancelTitle: backTitle, cancel: self.templateEditor, view: fieldSelectView, items: fields, skipRows: 1 });
-		var newForm = Ti.UI.createTextField({
-		    width: searchFieldWidth,
-		    left: buttonSideMargin,
-		    hintText: 'enter new field name',
-		    height: 'auto',
-		    color: '#000000',
-		    borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
-		    top: buttonTopMargin
-		});
-		var newButton = Ti.UI.createButton({
-			title: 'create',
-			right: buttonSideMargin,
-			top: buttonTopMargin
-		});
-		formComponents.styleButton(newButton);
-		newButton.addEventListener('click',function(e){
-			// check if the chosen name is unique
-			if (formDefinition.hasOwnProperty(newForm.value)){
-				alert("a field with this name already exists");
-				return false;
-			}
-			formDefinition.fields[newForm.value] = {label:newForm.value,description:'',value:null,type:'text',validation:'none'};
-			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
-			currentField = newForm.value;
-			self.editField();
-			fieldSelectView.getParent().remove(fieldSelectView);
-		});
-		fieldSelectView.add(newForm);
-		fieldSelectView.add(newButton);
-		for (i=0;i<fs.length;i++){
-			fs[i].bound = i;
-			fs[i].addEventListener('click', function(){
-				// an existing field was selected, load it
-				var i = this.bound;
-				currentField = fields[i];
-				self.editField();
-				fieldSelectView.getParent().remove(fieldSelectView);
-			});
-		}
-		
-		self.add(fieldSelectView);
 	};
 	
 	// edit / create an actual field in the template
@@ -865,7 +868,7 @@ function FormView() {
 			zIndex: 2
 		});
 		
-		var field = formDefinition.fields[currentField];
+		var field = currentField;
 		
 		var labellist = formComponents.labelList({view: scrollView, labels: [
 			'name',
@@ -880,7 +883,7 @@ function FormView() {
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: '#000000',
 			top: labellist.positions[0],
-			left: 120,
+			right: 10,
 			width: searchFieldWidth,
 			value: field.name || field.label,
 			height: 'auto'
@@ -891,7 +894,7 @@ function FormView() {
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: '#000000',
 			top: labellist.positions[1],
-			left: 120,
+			right: 10,
 			width: searchFieldWidth,
 			value: field.label || field.name,
 			height: 'auto'
@@ -902,7 +905,7 @@ function FormView() {
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: '#000000',
 			top: labellist.positions[2],
-			left: 120,
+			right: 10,
 			width: searchFieldWidth,
 			value: field.type,
 			editable: false,
@@ -923,7 +926,7 @@ function FormView() {
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: '#000000',
 			top: labellist.positions[3],
-			left: 120,
+			right: 10,
 			width: searchFieldWidth,
 			value: field.validation,
 			height: 'auto'
@@ -943,7 +946,7 @@ function FormView() {
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: '#000000',
 			top: labellist.positions[4],
-			left: 120,
+			right: 10,
 			width: searchFieldWidth,
 			value: field.value,
 			height: 'auto'
@@ -956,7 +959,7 @@ function FormView() {
 			borderRadius: 5,
 			color: '#000000',
 			top: labellist.positions[5],
-			left: 120,
+			right: 10,
 			width: searchFieldWidth,
 			fontSize: 24,
 			value: field.description,
@@ -965,31 +968,35 @@ function FormView() {
 		scrollView.add(descriptionField);
 		
 		var cancelButton = Ti.UI.createButton({
+			width: minButtonWidth,
+			height: minButtonHeight,
 			title: "cancel",
-			top: 400,
+			top: 5,
 			left: buttonSideMargin
 		});
 		formComponents.styleButton(cancelButton);
 		cancelButton.addEventListener('click',function(){
-			self.fieldEditor();
+			self.editGroup();
 			scrollView.getParent().remove(scrollView);
 		});
 		scrollView.add(cancelButton);
 		
 		var okButton = Ti.UI.createButton({
+			width: minButtonWidth,
+			height: minButtonHeight,
 			title: 'ok',
-			top: 400,
+			top: 5,
 			right: buttonSideMargin
 		});
 		okButton.addEventListener('click',function(){
-			formDefinition.fields[currentField].label = labelField.value;
-			formDefinition.fields[currentField].description = descriptionField.value;
-			formDefinition.fields[currentField].value = defaultField.value;
-			formDefinition.fields[currentField].validation = validationField.value;
-			formDefinition.fields[currentField].type = typeField.value;
+			currentField.label = labelField.value;
+			currentField.description = descriptionField.value;
+			currentField.value = defaultField.value;
+			currentField.validation = validationField.value;
+			currentField.type = typeField.value;
 			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
 			alert('updated');
-			self.fieldEditor();
+			self.editGroup();
 			scrollView.getParent().remove(scrollView);
 		});
 		formComponents.styleButton(okButton);
@@ -1010,12 +1017,13 @@ function FormView() {
 		// the template is loaded, load the user data
 		var formFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/'+currentTemplateName+'/'+currentFormName);
 		entryData = JSON.parse(formFile.read().text);
-		currentDataset = entryData[0] || {};
+		currentDataset = entryData[0] || self.initializeDataset();
 		currentDatasetIndex = 0;
+		entryData[0] = currentDataset;
 		
 		// now iterate through the form to check for CVs
 		var missingCVs = [];
-		for (i in formDefinition.fields){
+		for (var i in formDefinition.fields){
 			if (formDefinition.fields.hasOwnProperty(i)){
 				if (formDefinition.fields[i].validation.substr(0,3).toLowerCase()=='cv-'){
 					var cv = formDefinition.fields[i].validation.substr(3).toLowerCase();
@@ -1044,7 +1052,7 @@ function FormView() {
 	self.loadTemplate = function(){
 		var templateAvailable = false;
 		var templateFile = null;
-		for (i=0;i<templateFiles.length;i++){
+		for (var i=0;i<templateFiles.length;i++){
 			if (templateFiles[i]==currentTemplateName) {
 				templateAvailable = true;
 				templateFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory + '/templates/' + currentTemplateName);
@@ -1072,8 +1080,10 @@ function FormView() {
 		});
 	
 		var okButton = Ti.UI.createButton({
-			top: 5,
-			right: buttonSideMargin,
+			width: minButtonWidth,
+			height: minButtonHeight,
+			top: buttonTopMargin,
+			right: buttonSideMargin + minButtonWidth + 5,
 		    title: backTitle
 		});
 		formComponents.styleButton(okButton);
@@ -1097,8 +1107,8 @@ function FormView() {
 		
 		var addNewButton =  Ti.UI.createButton({
 			title: 'new',
-			width: 120,
-			height: 30,
+			width: minButtonWidth,
+			height: minButtonHeight,
 			left: buttonSideMargin,
 			top: buttonTopMargin
 		});
@@ -1109,7 +1119,7 @@ function FormView() {
 			});
 			dialog.addEventListener('click', function(e){
 				if(e.index==0){
-					for (i=0;i<templateFiles.length;i++){
+					for (var i=0;i<templateFiles.length;i++){
 						if(templateFiles[i]==e.text){
 							alert('a template with that name already exists');
 							dialog.show();
@@ -1118,11 +1128,10 @@ function FormView() {
 					}
 					currentTemplateName = e.text;
 					formDefinition = { "name": currentTemplateName,
+									   "cvs": {},
 									   "label": currentTemplateName,
-									   "owner": "public",
 									   "description": "a custom form",
-									   "fields": {},
-									   "groups": [{"name": "main", "label":"main","description":"main group","fields":[]}]};
+									   "groups": [{"name": "main", "label":"main","description":"main group","fields":[],"toplevel": 1,"mandatory":1}]};
 					Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
 					var tdir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/',currentTemplateName);
 					if (! tdir.exists()) {
@@ -1140,8 +1149,8 @@ function FormView() {
 		
 		var syncButton =  Ti.UI.createButton({
 			title: 'check server',
-			width: 120,
-			height: 30,
+			width: minButtonWidth,
+			height: minButtonHeight,
 			top: buttonTopMargin,
 			right: buttonSideMargin
 		});
@@ -1159,11 +1168,12 @@ function FormView() {
 			var label = Ti.UI.createLabel({
 				color: '#000000',
 				text: sortedTemplates[i],
+				font: labelFont,
 				height:'auto',
 				width:'auto'
 			});
 			var row = Titanium.UI.createTableViewRow({
-				height:46,
+				height:minButtonHeight,
 				backgroundColor: '#ffffff',
 				bound: sortedTemplates[i]
 			});
@@ -1178,7 +1188,7 @@ function FormView() {
 		}
 		
 		var tableView = Ti.UI.createTableView({
-			top: firstRowOffset,
+			top: minButtonHeight + buttonTopMargin + 10,
 			data: array,
 			style:Titanium.UI.iPhone.TableViewStyle.GROUPED
 		});
@@ -1203,27 +1213,27 @@ function FormView() {
  		/*
  		 This section needs to be modified to load a list of all available templates on the server versus only the mgrast default one
  		 */ 
-		var templateURL = "http://localhost/cgi-bin/api.cgi/validation/template/cd1d90ca-1023-4c51-8770-ed9b1f91e6b5";
+		var templateURL = "http://140.221.84.144:8000/node/2736be4f-91b9-41d9-ae3d-d2e958f582fd";
 		var client = Ti.Network.createHTTPClient({
 	     	onload : function(e) {
-	     		var response = JSON.parse(this.responseText);
-	     		if (response.hasOwnProperty("template") && response.template.hasOwnProperty('name')){
-	     			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+response.template.name).write(JSON.stringify(response.template));
-					var tdir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/',response.template.name);
-					if (! tdir.exists()) {
-			 		   tdir.createDirectory();
+	     		var response = JSON.parse(this.responseText).data.attributes;
+     			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+response.name).write(JSON.stringify(response));
+				var tdir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/',response.name);
+				if (! tdir.exists()) {
+		 		   tdir.createDirectory();
+				}
+				var exists = false;
+				for (var i=0;i<templateFiles.length;i++) {
+					if (templateFiles[i] == response.name) {
+						exists = true;
+						break;
 					}
-					var exists = false;
-					for (i=0;i<templateFiles.length;i++) {
-						if (templateFiles[i] == response.template.name) {
-							exists = true;
-							break;
-						}
-					}
-					if (! exists) {
-						templateFiles.push(response.template.name);
-					}
-	     		}
+				}
+				if (! exists) {
+					templateFiles.push(response.name);
+				}
+				alert('updated templates');
+				templateView.getParent().remove(templateView);
 		    },
 	     	onerror : function(e) {
 	         	alert('error: '+e.error);
@@ -1249,8 +1259,10 @@ function FormView() {
 		});
 	
 		var okButton = Ti.UI.createButton({
-			top: 5,
-			right: buttonSideMargin,
+			width: minButtonWidth,
+			height: minButtonHeight,
+			top: buttonTopMargin,
+			right: buttonSideMargin + 5 + minButtonWidth,
 		    title: backTitle
 		});
 		formComponents.styleButton(okButton);
@@ -1274,8 +1286,8 @@ function FormView() {
 		
 		var addNewButton =  Ti.UI.createButton({
 			title: 'new',
-			width: 120,
-			height: 30,
+			width: minButtonWidth,
+			height: minButtonHeight,
 			top: buttonTopMargin,
 			left: buttonSideMargin
 		});
@@ -1286,7 +1298,7 @@ function FormView() {
 			});
 			dialog.addEventListener('click', function(e){
 				if(e.index==0){
-					for (i=0;i<cvFiles.length;i++){
+					for (var i=0;i<cvFiles.length;i++){
 						if(cvFiles[i]==e.text){
 							alert('a CV with that name already exists');
 							dialog.show();
@@ -1308,8 +1320,8 @@ function FormView() {
 		
 		var syncButton =  Ti.UI.createButton({
 			title: 'check server',
-			width: 120,
-			height: 30,
+			width: minButtonWidth,
+			height: minButtonHeight,
 			top: buttonTopMargin,
 			right: buttonSideMargin
 		});
@@ -1331,7 +1343,7 @@ function FormView() {
 				width:'auto'
 			});
 			var row = Titanium.UI.createTableViewRow({
-				height:46,
+				height:minButtonHeight,
 				backgroundColor: '#ffffff',
 				bound: i
 			});
@@ -1345,7 +1357,7 @@ function FormView() {
 		}
 		
 		var tableView = Ti.UI.createTableView({
-			top: firstRowOffset,
+			top: buttonTopMargin + minButtonHeight + 10,
 			data: array,
 			style:Titanium.UI.iPhone.TableViewStyle.GROUPED
 		});
@@ -1371,23 +1383,25 @@ function FormView() {
 		
 		var terms = cv.terms.sort().slice(0);
 		var thash = {};
-		for (i=0;i<terms.length;i++){
+		for (var i=0;i<terms.length;i++){
 			thash[terms[i]] = true;
 		}
 		var fs = formComponents.filterSelect({ cancelTitle: backTitle, cancel: self.manageCVs, view: cvView, items: terms, skipRows: 1 });
 		var newForm = Ti.UI.createTextField({
-		    width: searchFieldWidth,
+		    width: maxWidth - minButtonWidth - 20,
 		    left: buttonSideMargin,
-		    top: buttonTopMargin,
+		    top: 10 + minButtonHeight,
 		    hintText: 'enter new term',
-		    height: 'auto',
+		    height: minButtonHeight,
 		    color: '#000000',
 		    borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED
 		});
 		var newButton = Ti.UI.createButton({
+			width: minButtonWidth,
+			height: minButtonHeight,
 			title: 'add',
 			right: buttonSideMargin,
-			top: buttonTopMargin
+			top: 10 + minButtonHeight
 		});
 		formComponents.styleButton(newButton);
 		newButton.addEventListener('click',function(e){
@@ -1405,7 +1419,7 @@ function FormView() {
 		});
 		cvView.add(newForm);
 		cvView.add(newButton);
-		for (i=0;i<fs.length;i++){
+		for (var i=0;i<fs.length;i++){
 			fs[i].bound = i;
 			fs[i].addEventListener('click', function(){
 				var dialog = Ti.UI.createOptionDialog({
@@ -1451,10 +1465,10 @@ function FormView() {
 	     		var response = JSON.parse(this.responseText);
 	     		var serverCVlist = [];
 	     		if (response.hasOwnProperty("select")){
-	     			for (i in response.select){
+	     			for (var i in response.select){
 	     				if (response.select.hasOwnProperty(i)){
 	     					var existing = false;
-	     					for (h=0;h<cvFiles.length;h++){
+	     					for (var h=0;h<cvFiles.length;h++){
 	     						if (cvFiles[h]==i){
 	     							existing = true;
 	     							break;
@@ -1465,7 +1479,7 @@ function FormView() {
 	     			}
 	     		}
 	     		var newCVs = 0;
-	     		for (i=0;i<serverCVlist.length;i++){
+	     		for (var i=0;i<serverCVlist.length;i++){
 	     			var cv = serverCVlist[i].name;	
 	     			if (serverCVlist[i].existing){
 	     				var cvFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/cvs/'+cv);
@@ -1507,6 +1521,7 @@ function FormView() {
 			color:'#ffffff',
 			text: currentTemplateName + ' - ' + currentFormName,
 			top: 10,
+			font: labelFont,
 			height:'auto',
 			width:'auto'
 		});
@@ -1542,12 +1557,12 @@ function FormView() {
 		});
 		
 		var items = [];
-		for (i=0;i<entryData.length;i++){
-			items.push(entryData[i][formDefinition.id]);
+		for (var i=0;i<entryData.length;i++){
+			items.push(entryData[i]['id']);
 		}
 		
 		var fs = formComponents.filterSelect({ view: datasetSelectView, items: items });
-		for (i=0;i<fs.length;i++){
+		for (var i=0;i<fs.length;i++){
 			fs[i].bound = i;
 			fs[i].addEventListener('click', function(){
 				var i = this.bound;
@@ -1598,7 +1613,7 @@ function FormView() {
 		});
 		formView.add(buttons['export to email']);
 		buttons['upload to MG-RAST'].addEventListener('click',function(){
-			var url = "http://api.metagenomics.anl.gov/api2.cgi/metagenome/mgm4440026.3?verbosity=full";
+			var url = "http://api.metagenomics.anl.gov/metagenome/mgm4440026.3?verbosity=full";
 			var client = Ti.Network.createHTTPClient({
 		     	onload : function(e) {
 		     		var response = JSON.parse(this.responseText);
@@ -1626,6 +1641,50 @@ function FormView() {
 		self.add(formView);
 	};
 	
+	// create an empty dataset for the current template
+	self.initializeDataset = function(){
+		var dataset = {};
+		
+		for (var i in formDefinition.groups){
+			if (formDefinition.groups.hasOwnProperty(i)){
+				if (formDefinition.groups[i].toplevel){
+					dataset[i] = null;
+					dataset[i] = self.addSubgroupToDataset(dataset[i], i);
+				}
+			}
+		}
+		return dataset;
+	};
+	
+	// create a subgroup entry into a group dataset
+	self.addSubgroupToDataset = function(container, subgroup){
+		if (formDefinition.groups.hasOwnProperty(subgroup)){
+			var sg = {};
+			for (var h in formDefinition.groups[subgroup].fields){
+				if (formDefinition.groups[subgroup].fields.hasOwnProperty(h)){
+					sg[h] = formDefinition.groups[subgroup].fields[h]['default'] || "";
+				}
+			}
+			for (var h in formDefinition.groups[subgroup].subgroups){
+				if (formDefinition.groups[subgroup].subgroups.hasOwnProperty(h)){
+					if (formDefinition.groups[subgroup].subgroups[h].type == 'list') {
+						sg[formDefinition.groups[subgroup].subgroups[h].label] = [];
+					} else {
+						sgi[formDefinition.groups[subgroup].subgroups[h].label] = null;
+					}
+				}
+			}
+			if (container){
+				container.push(sg);
+			} else {
+				container = sg;
+			}
+		} else {
+			alert('subgroup '+subgroup+' does not exist in template');
+		}
+		return container;
+	};
+	
 	/*
 		FORM RENDER LOGIC
 	*/
@@ -1640,54 +1699,51 @@ function FormView() {
 		});
 		var currentControl = null;
  
+ 		var navView = Ti.UI.createView({
+ 			zIndex: 3,
+ 			width: maxWidth - (minButtonWidth * 2) - 10,
+ 			height: minButtonHeight + 20,
+ 			top: 0,
+ 			left: minButtonWidth + 5,
+ 			backgroundColor: '#000000'
+ 		});
+ 		renderView.add(navView);
+ 
 		var closeBtn = Ti.UI.createButton({
-			title: backTitle,
+			width: minButtonWidth,
+			height: minButtonHeight,
+			title: 'menu',
 			left: buttonSideMargin,
 			top: 10
 		});
 		formComponents.styleButton(closeBtn);
 		closeBtn.addEventListener('click',
 			function(e) {
-				currentDatasetIndex = entryData.length;
-				currentDataset = {};
+				alert(JSON.stringify(entryData));
 				renderView.getParent().remove(renderView);
 			}
 		);
 		
 		var nextBtn = Ti.UI.createButton({
-			title: 'Store',
+			width: minButtonWidth,
+			height: minButtonHeight,
+			title: 'new',
 			right: buttonSideMargin,
 			top: 10
 		});
 		formComponents.styleButton(nextBtn);
 		nextBtn.addEventListener('click',
 			function(e){
-				// fill in default values for entries that were not changed by the user
-				for (i in currentGroup.fields){
-					if (currentGroup.fields.hasOwnProperty(i) && ! currentDataset.hasOwnProperty(i)){
-						currentDataset[i] = currentGroup.fields[i]['default'];
-					}
-				}
-				
-				// check if the id is filled out
-				if (currentDataset[formDefinition.id]) {
-					entryData[currentDatasetIndex] = currentDataset;
-					currentDatasetIndex++;
-					currentDataset = entryData[currentDatasetIndex] ? entryData[currentDatasetIndex] : {};
-					Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/'+currentTemplateName+'/'+currentFormName).write(JSON.stringify(entryData));
-					self.renderForm();
-					renderView.getParent().remove(renderView);
-				}
-				// otherwise alert about it
-				else {
-					alert("You must fill out at least the "+formDefinition.fields[formDefinition.id].label+" field.");
-				}
+				currentDatasetIndex = entryData.length;
+				currentDataset = self.initializeDataset();
+				entryData[currentDatasetIndex] = currentDataset;				
 			}
 		);
 		var titleLabel = Ti.UI.createLabel({
 				top: 13,
 				left: 100,
 				width: 120,
+				font: labelFont,
 				textAlign: 'center',
 				text: (currentDatasetIndex == entryData.length) ? '[ new ]' : '['+(currentDatasetIndex+1)+' of '+entryData.length+']',
 				color: '#ffffff'
@@ -1706,22 +1762,27 @@ function FormView() {
 		});
 		
 		var menuItemWidth = parseInt(100 / formDefinition.groups.length);
-			
-		for (i in formDefinition.groups){
-			if (! formDefinition.groups[i].toplevel) {
-				continue;
+		var toplevelGroups = [];
+		for (var i in formDefinition.groups){
+			if (formDefinition.groups.hasOwnProperty(i)) {
+				if (formDefinition.groups[i].toplevel) {					
+					toplevelGroups.push(formDefinition.groups[i]);
+				}
 			}
-			var currGroup = formDefinition.groups[i];
+		}			
+		for (var i=0;i<toplevelGroups.length;i++) {
+			var currGroup = toplevelGroups[i];
 			var currGroupView = Ti.UI.createView({
 				top: "10%",
 				width: "100%",
-				height: (formDefinition.groups.length > 1) ? "80%" : "90%",
+				height: (toplevelGroups.length > 1) ? "80%" : "90%",
 				backgroundColor: '#000000',
 				zIndex: (i==0) ? 2 : 1
 			});
 			groupViews.push(currGroupView);
 			var menuItem = null;
 			if (i==0){
+				currentGroup = currGroup;
 				menuItem = Ti.UI.createLabel({
 					text: currGroup.label,
 					width: "50%",
@@ -1752,17 +1813,17 @@ function FormView() {
 				});
 			}
 			menuItem.addEventListener('click', function(){
-				for (i=0;i<groupViews.length;i++){
-					if (i==this.bound){
-						groupViews[i].zIndex = 2;
-						tabMenu.children[i].color = '#0088CC';
-						tabMenu.children[i].backgroundColor = '#222222';
-						tabMenu.children[i].backgroundGradient = {};
+				for (var h=0;h<groupViews.length;h++){
+					if (h==this.bound){
+						groupViews[h].zIndex = 2;
+						tabMenu.children[h].color = '#0088CC';
+						tabMenu.children[h].backgroundColor = '#222222';
+						tabMenu.children[h].backgroundGradient = {};
 					} else {
-						groupViews[i].zIndex = 1;
-						tabMenu.children[i].color = '#ffffff';
-						tabMenu.children[i].backgroundColor = null;
-						tabMenu.children[i].backgroundGradient = {
+						groupViews[h].zIndex = 1;
+						tabMenu.children[h].color = '#ffffff';
+						tabMenu.children[h].backgroundColor = null;
+						tabMenu.children[h].backgroundGradient = {
 							type: 'linear',
 					        startPoint: { x: '50%', y: '0%' },
 					        endPoint: { x: '50%', y: '100%' },
@@ -1774,20 +1835,97 @@ function FormView() {
 			tabMenu.add(menuItem);
 			
 			var tabScroll = Ti.UI.createScrollView();
+			
+			self.renderGroup(tabScroll, currGroup, navView, toplevelGroups[i].name, currentDataset[toplevelGroups[i].name]);
+			
 			currGroupView.add(tabScroll);
 			
-			var currTop = 0;
+			renderView.add(currGroupView);
+		}
+		if(toplevelGroups.length > 1) {
+			renderView.add(tabMenu);
+		}
+		self.add(renderView);
+	};
+
+	self.renderGroup = function(tabScroll, currGroup, navView, parentGroup, dataStore){
+		var currTop = 0;
+		
+		if (parentGroup) {
+			var parentButton = Ti.UI.createButton({
+				width: maxWidth - (2 * minButtonWidth) - 20,
+				height: minButtonHeight,
+				title: parentGroup,
+				left: 5,
+				top: 10,
+				bound: tabScroll
+			});
+			formComponents.styleButton(parentButton);
+			parentButton.addEventListener('click',
+				function(e) {
+					this.bound.getParent().getParent().remove(this.bound.getParent());
+					this.getParent().remove(this);
+				}
+			);
+			navView.add(parentButton);
+		}
 			
-			// iterate through the fields of the form
-			// the switch statement handles the different form types
-			for (h in currGroup.fields) {
-				var currField = currGroup.fields[h];
+		// iterate over the subgroups of this group
+		for (var j in currGroup.subgroups) {
+			if (currGroup.subgroups.hasOwnProperty(j)) {
+				var subgroupButton = Ti.UI.createButton({
+					width: maxWidth - 10,
+					height: minButtonHeight,
+					title: currGroup.subgroups[j].label,
+					left: buttonSideMargin,
+					right: buttonSideMargin,
+					top: currTop,
+					bound: j
+				});
+				formComponents.styleButton(subgroupButton);
+				subgroupButton.addEventListener('click',
+					function(e) {
+						var sgView = Ti.UI.createView({
+							top: 0,
+							width: "100%",
+							height: "100%",
+							backgroundColor: '#000000',
+							zIndex: 4
+						});
+						var sgTabScroll = Ti.UI.createScrollView();
+						sgView.add(sgTabScroll);
+						if (formDefinition.groups[parentGroup].subgroups[this.bound].type == 'list'){
+							if (! dataStore[this.bound].length) {
+								dataStore[this.bound] = self.addSubgroupToDataset(dataStore[this.bound], this.bound);
+							}
+							self.renderGroup(sgTabScroll, formDefinition.groups[this.bound], navView, this.bound, dataStore[this.bound][0]);
+						} else {
+							if (typeof dataStore[this.bound] == 'undefined') {
+								dataStore[this.bound] = self.addSubgroupToDataset(dataStore[this.bound], this.bound);
+							}
+							self.renderGroup(sgTabScroll, formDefinition.groups[this.bound], navView, this.bound, dataStore[this.bound]);
+						}
+						tabScroll.getParent().add(sgView);
+					}
+				);
+				currTop += minButtonHeight + 5;
+				tabScroll.add(subgroupButton);
+			}
+			
+		}
+			
+		// iterate through the fields of this group
+		// the switch statement handles the different form types
+		for (var j in currGroup.fields) {
+			if (currGroup.fields.hasOwnProperty(j)){
+				var currField = currGroup.fields[j];
 				switch (currField.type) {
 					case 'text':
 						var textLabel = Ti.UI.createLabel({
 							color:'#ffffff',
 							text: currField.label,
 							left: buttonSideMargin,
+							font: labelFont,
 							top: currTop,
 							height:'auto',
 							width:'auto'
@@ -1795,29 +1933,27 @@ function FormView() {
 						
 						tabScroll.add(textLabel);
 						
-						currTop += 30;
-						
 						var textField = Ti.UI.createTextField({
 							borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 							color: '#000000',
 							top: currTop,
-							left: buttonSideMargin,
+							right: buttonSideMargin,
 							width: 300,
-							value: currentDataset[currField.label] ? currentDataset[currField.label] : (currField.value ? currField.value : ''),
+							value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
 							height: 'auto',
-							bound: [i,h]
+							bound: [i,j]
 						});
 						textField.addEventListener('change', function(e){
-							currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]]] = this.value;
+							dataStore[this.bound[j]] = this.value;
 						});
 						
 						tabScroll.add(textField);
-						if (h==0){
+						if (j==0){
 							textField.focus();
 							currentControl = textField;
 						}
 						
-						currTop += 40;
+						currTop += globalLineHeight;
 					break;
 					case 'geolocation':
 						var textLabel = Ti.UI.createLabel({
@@ -1836,14 +1972,14 @@ function FormView() {
 							borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 							color: '#000000',
 							top: currTop,
-							left: buttonSideMargin,
+							right: buttonSideMargin,
 							width: 220,
-							value: currentDataset[currField.label] ? currentDataset[currField.label] : (currField.value ? currField.value : ''),
+							value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
 							height: 'auto',
-							bound: [i,h]
+							bound: [i,j]
 						});
 						textField.addEventListener('change', function(e){
-							currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]]] = this.value;
+							dataStore[this.bound[j]] = this.value;
 						});
 						
 						tabScroll.add(textField);
@@ -1852,14 +1988,14 @@ function FormView() {
 							title: 'get',
 					 	 	top: currTop,
 							left: 240,
-							width: 65,
-							height: 30,
+							width: minButtonWidth,
+							height: minButtonHeight,
 							bound: textField
 						});
 						formComponents.styleButton(locationButton);									  
 						tabScroll.add(locationButton);
 						
-						if (h==0){
+						if (j==0){
 							currentControl = locationButton;
 						}
 						
@@ -1874,7 +2010,7 @@ function FormView() {
 								}
 							});
 						});
-						currTop += 40;
+						currTop += globalLineHeight;
 					break;
 					case 'image':
 						var textLabel = Ti.UI.createLabel({
@@ -1891,8 +2027,8 @@ function FormView() {
 						
 						var cameraButton = Ti.UI.createButton({
 							title: 'take picture',
-							width: 100,
-							height: 30,
+							width: minButtonWidth,
+							height: minButtonHeight,
 							top: currTop,
 							left: 200,
 						});
@@ -1902,10 +2038,10 @@ function FormView() {
 						currTop += 60;
 						
 						var imageView = Titanium.UI.createImageView({
-										image: currentDataset[currField.label] ? currentDataset[currField.label] : currField.value,
+										image: dataStore[currField.name] ? dataStore[currField.name] : currField['default'],
 										width: 'auto',
 										top: currTop,
-										bound: [i,h]
+										bound: [i,j]
 									});
 						tabScroll.add(imageView);
 						
@@ -1927,7 +2063,7 @@ function FormView() {
 							});
 						});
 						
-						if (h==0){
+						if (j==0){
 							currentControl = cameraButton;
 						}
 						
@@ -1935,9 +2071,8 @@ function FormView() {
 						
 					break;
 					case 'list':
-						if (currField.validation.match(/^cv-/)) {
-							var validationType = currField.validation.substr(3);
-							var cv = controlledVocabularies[validationType];
+						if (currField.validation.type == 'cv') {
+							var cv = formDefinition.cvs[currField.validation.value];
 							var textLabel = Ti.UI.createLabel({
 								color:'#ffffff',
 								text: currField.label,
@@ -1967,7 +2102,7 @@ function FormView() {
 								left: buttonSideMargin,
 								width: 300,
 								editable: false,
-								value: currentDataset[currField.name] ? currentDataset[currField.name] : (currField.value ? currField.value : ''),
+								value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
 								height: 'auto',
 								rightButton:drop_button,
 								rightButtonMode:Titanium.UI.INPUT_BUTTONMODE_ALWAYS,
@@ -2011,20 +2146,20 @@ function FormView() {
 						tabScroll.add(textLabel);
 						currTop += 30;
 						
-						var valueSwitch = Ti.UI.createSwitch({ value: currentDataset[currField.label] ? currentDataset[currField.label] : (currField.value ? currField.value : false),
-															   bound: [i,h],
+						var valueSwitch = Ti.UI.createSwitch({ value: dataStore[currField.name] ? true : (currField['default'] ? true : false),
+															   bound: [i,j],
 															   titleOn:'yes',
 															   titleOff:'no',
 															   top: currTop });
 						valueSwitch.addEventListener('change', function(e){
-							currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]]] = this.value;
+							dataStore[this.bound[j]] = this.value;
 						});
 						
-						if (h==0){
+						if (j==0){
 							currentControl = valueSwitch;
 						}
 						
-						currTop += 40;
+						currTop += globalLineHeight;
 						
 						tabScroll.add(valueSwitch);
 					break;
@@ -2034,26 +2169,25 @@ function FormView() {
 							text: currField.label,
 							left: buttonSideMargin,
 							top: currTop,
+							font: labelFont,
 							height:'auto',
 							width:'auto'
 						});
 						
 						tabScroll.add(textLabel);
 						
-						currTop += 30;
-						
 						var textField = Ti.UI.createTextField({
 							borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 							color: '#000000',
 							top: currTop,
-							left: buttonSideMargin,
+							right: buttonSideMargin,
 							width: 300,
-							value: currentDataset[currField.label] ? currentDataset[currField.label] : (currField.value ? currField.value : ''),
+							value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
 							height: 'auto',
-							bound: [i,h]
+							bound: [i,j]
 						});
 						textField.addEventListener('change', function(e){
-							currentDataset[formDefinition.groups[this.bound[0]].fields[this.bound[1]]] = this.value;
+							dataStore[this.bound[j]] = this.value;
 						});
 						
 						tabScroll.add(textField);
@@ -2062,19 +2196,13 @@ function FormView() {
 							currentControl = textField;
 						}
 						
-						currTop += 40;
-					break;
+						currTop += globalLineHeight;
 					break;
 				}
 			}
-			renderView.add(currGroupView);
 		}
-		if(formDefinition.groups.length > 1) {
-			renderView.add(tabMenu);
-		}
-		self.add(renderView);
 	};
-
+	
 	// first have the user select a form instance
 	// from there, each view will set the next view
 	self.showFormInstanceSelect();
