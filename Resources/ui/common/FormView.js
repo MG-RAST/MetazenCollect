@@ -196,7 +196,7 @@ function FormView() {
 			zIndex: 1
 		});
 		
-		var currentTemplateInstances = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data', currentTemplateName).getDirectoryListing();
+		var currentTemplateInstances = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data').getDirectoryListing();
 		var fs = formComponents.filterSelect({ view: templateSelectView, items: templateFiles });
 		for (var i=0;i<fs.length;i++){
 			fs[i].bound = i;
@@ -626,6 +626,7 @@ function FormView() {
 		var titleLabel = Ti.UI.createLabel({
 			text: currentGroup.name,
 			top: 10,
+			font: labelFont,
 			width: 'auto',
 			height: 'auto',
 			color: 'white',
@@ -1083,7 +1084,7 @@ function FormView() {
 			width: minButtonWidth,
 			height: minButtonHeight,
 			top: buttonTopMargin,
-			right: buttonSideMargin + minButtonWidth + 5,
+			left: buttonSideMargin,
 		    title: backTitle
 		});
 		formComponents.styleButton(okButton);
@@ -1096,6 +1097,7 @@ function FormView() {
 		var titleLabel = Ti.UI.createLabel({
 			text: "Templates",
 			top: 5,
+			font: labelFont,
 			left: buttonSideMargin,
 			width: 'auto',
 			height: 'auto',
@@ -1109,7 +1111,7 @@ function FormView() {
 			title: 'new',
 			width: minButtonWidth,
 			height: minButtonHeight,
-			left: buttonSideMargin,
+			right: buttonSideMargin + minButtonWidth + 5,
 			top: buttonTopMargin
 		});
 		formComponents.styleButton(addNewButton);
@@ -1156,9 +1158,41 @@ function FormView() {
 		});
 		formComponents.styleButton(syncButton);
 		syncButton.addEventListener('click', function(e){
-			self.downloadTemplates();
-			self.manageTemplates();
-			manageTemplateView.getParent().remove(manageTemplateView);
+			/*
+	 		 This section needs to be modified to load a list of all available templates on the server versus only the mgrast default one
+	 		 */ 
+			var templateURL = "http://140.221.84.144:8000/node/2736be4f-91b9-41d9-ae3d-d2e958f582fd";
+			var client = Ti.Network.createHTTPClient({
+		     	onload : function(e) {
+		     		var response = JSON.parse(this.responseText).data.attributes;
+	     			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+response.name).write(JSON.stringify(response));
+					var tdir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/',response.name);
+					if (! tdir.exists()) {
+			 		   tdir.createDirectory();
+					}
+					var exists = false;
+					for (var i=0;i<templateFiles.length;i++) {
+						if (templateFiles[i] == response.name) {
+							exists = true;
+							break;
+						}
+					}
+					if (! exists) {
+						templateFiles.push(response.name);
+					}
+					alert('updated templates');
+					self.manageTemplates();
+					manageTemplateView.getParent().remove(manageTemplateView);
+			    },
+		     	onerror : function(e) {
+		         	alert('error: '+e.error);
+		     	},
+		     	timeout : 5000  // in milliseconds
+			 });
+			 // Prepare the connection.
+	 		client.open("GET", templateURL);
+	 		// Send the request.
+	 		client.send();
 		});
 		
 		manageTemplateView.add(syncButton);
@@ -1197,56 +1231,7 @@ function FormView() {
 		
 		self.add(manageTemplateView);
 	};
-		
-	// download the templates available on the server
-	self.downloadTemplates = function(){
-		var templateView = Ti.UI.createScrollView({
-			top: 0,
-			backgroundColor: '#000000',
-			width: '100%',
-			height: '100%',
-			zIndex: 1
-		});
-		
- 		self.add(templateView);
- 		
- 		/*
- 		 This section needs to be modified to load a list of all available templates on the server versus only the mgrast default one
- 		 */ 
-		var templateURL = "http://140.221.84.144:8000/node/2736be4f-91b9-41d9-ae3d-d2e958f582fd";
-		var client = Ti.Network.createHTTPClient({
-	     	onload : function(e) {
-	     		var response = JSON.parse(this.responseText).data.attributes;
-     			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+response.name).write(JSON.stringify(response));
-				var tdir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/',response.name);
-				if (! tdir.exists()) {
-		 		   tdir.createDirectory();
-				}
-				var exists = false;
-				for (var i=0;i<templateFiles.length;i++) {
-					if (templateFiles[i] == response.name) {
-						exists = true;
-						break;
-					}
-				}
-				if (! exists) {
-					templateFiles.push(response.name);
-				}
-				alert('updated templates');
-				templateView.getParent().remove(templateView);
-		    },
-	     	onerror : function(e) {
-	         	alert('error: '+e.error);
-				templateView.getParent().remove(templateView);
-	     	},
-	     	timeout : 5000  // in milliseconds
-		 });
-		 // Prepare the connection.
- 		client.open("GET", templateURL);
- 		// Send the request.
- 		client.send();
-	};
-	
+			
 	// show a list of available controlled vocabularies and allow CV creation
 	// also allow CV modification for locally stored CVs
 	self.manageCVs = function(){
@@ -1262,7 +1247,7 @@ function FormView() {
 			width: minButtonWidth,
 			height: minButtonHeight,
 			top: buttonTopMargin,
-			right: buttonSideMargin + 5 + minButtonWidth,
+			left: buttonSideMargin,
 		    title: backTitle
 		});
 		formComponents.styleButton(okButton);
@@ -1275,6 +1260,7 @@ function FormView() {
 		var titleLabel = Ti.UI.createLabel({
 			text: "Controlled Vocabularies",
 			top: 5,
+			font: labelFont,
 			left: buttonSideMargin,
 			width: 'auto',
 			height: 'auto',
@@ -1289,7 +1275,7 @@ function FormView() {
 			width: minButtonWidth,
 			height: minButtonHeight,
 			top: buttonTopMargin,
-			left: buttonSideMargin
+			right: buttonSideMargin + 5 + minButtonWidth
 		});
 		formComponents.styleButton(addNewButton);
 		addNewButton.addEventListener('click', function(e){
@@ -1327,9 +1313,53 @@ function FormView() {
 		});
 		formComponents.styleButton(syncButton);
 		syncButton.addEventListener('click', function(e){
-			self.downloadCVs();
-			self.manageCVs();
-			manageCVView.getParent().remove(manageCVView);
+			var cvURL = "http://api.metagenomics.anl.gov/metadata/cv";
+			var client = Ti.Network.createHTTPClient({
+		     	onload : function(e) {
+		     		var response = JSON.parse(this.responseText);
+		     		var serverCVlist = [];
+		     		if (response.hasOwnProperty("select")){
+		     			for (var i in response.select){
+		     				if (response.select.hasOwnProperty(i)){
+		     					var existing = false;
+		     					for (var h=0;h<cvFiles.length;h++){
+		     						if (cvFiles[h]==i){
+		     							existing = true;
+		     							break;
+		     						}
+		     					}
+		     					serverCVlist.push({name: i, existing: existing, terms: response.select[i]});
+		     				}
+		     			}
+		     		}
+		     		var newCVs = 0;
+		     		for (var i=0;i<serverCVlist.length;i++){
+		     			var cv = serverCVlist[i].name;	
+		     			if (serverCVlist[i].existing){
+		     				var cvFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/cvs/'+cv);
+							controlledVocabularies[cv] = JSON.parse(cvFile.read().text);
+						} else {
+							controlledVocabularies[cv] = {"label":cv,"type":"list","description":cv,"terms":[],"local":false};
+							newCVs++;
+						}
+						controlledVocabularies[cv].terms = serverCVlist[i].terms;
+	     				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/cvs/'+cv).write(JSON.stringify(controlledVocabularies[cv]));
+		     		}
+		     		var cvDir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, 'cvs');
+					cvFiles = cvDir.getDirectoryListing();
+		     		alert(serverCVlist.length+' CVs downloaded - '+newCVs+' new, '+(serverCVlist.length-newCVs)+' updated.');
+		     		self.manageCVs();
+					manageCVView.getParent().remove(manageCVView);
+			    },
+		     	onerror : function(e) {
+		         	alert('error: '+e.error);
+		     	},
+		     	timeout : 5000  // in milliseconds
+			 });
+			 // Prepare the connection.
+	 		client.open("GET", cvURL);
+	 		// Send the request.
+	 		client.send();
 		});
 		
 		manageCVView.add(syncButton);
@@ -1339,6 +1369,7 @@ function FormView() {
 			var label = Ti.UI.createLabel({
 				color: '#000000',
 				text: sortedCVs[i],
+				font: labelFont,
 				height:'auto',
 				width:'auto'
 			});
@@ -1446,67 +1477,7 @@ function FormView() {
 		
 		self.add(cvView);
 	};
-	
-	// show a list of CVs available on the server and allow download / update
-	self.downloadCVs = function(){
-		var cvView = Ti.UI.createScrollView({
-			top: 0,
-			backgroundColor: '#000000',
-			width: '100%',
-			height: '100%',
-			zIndex: 1
-		});
 		
- 		self.add(cvView);
- 		
-		var cvURL = "http://api.metagenomics.anl.gov/metadata/cv";
-		var client = Ti.Network.createHTTPClient({
-	     	onload : function(e) {
-	     		var response = JSON.parse(this.responseText);
-	     		var serverCVlist = [];
-	     		if (response.hasOwnProperty("select")){
-	     			for (var i in response.select){
-	     				if (response.select.hasOwnProperty(i)){
-	     					var existing = false;
-	     					for (var h=0;h<cvFiles.length;h++){
-	     						if (cvFiles[h]==i){
-	     							existing = true;
-	     							break;
-	     						}
-	     					}
-	     					serverCVlist.push({name: i, existing: existing, terms: response.select[i]});
-	     				}
-	     			}
-	     		}
-	     		var newCVs = 0;
-	     		for (var i=0;i<serverCVlist.length;i++){
-	     			var cv = serverCVlist[i].name;	
-	     			if (serverCVlist[i].existing){
-	     				var cvFile = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/cvs/'+cv);
-						controlledVocabularies[cv] = JSON.parse(cvFile.read().text);
-					} else {
-						controlledVocabularies[cv] = {"label":cv,"type":"list","description":cv,"terms":[],"local":false};
-						newCVs++;
-					}
-					controlledVocabularies[cv].terms = serverCVlist[i].terms;
-     				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/cvs/'+cv).write(JSON.stringify(controlledVocabularies[cv]));
-	     		}
-	     		var cvDir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, 'cvs');
-				cvFiles = cvDir.getDirectoryListing();
-	     		alert(serverCVlist.length+' CVs downloaded - '+newCVs+' new, '+(serverCVlist.length-newCVs)+' updated.');
-		    },
-	     	onerror : function(e) {
-	         	alert('error: '+e.error);
-				cvView.getParent().remove(cvView);
-	     	},
-	     	timeout : 5000  // in milliseconds
-		 });
-		 // Prepare the connection.
- 		client.open("GET", cvURL);
- 		// Send the request.
- 		client.send();
-	};
-	
 	// show the options when a form is selected
 	self.showFormOptions = function(){
 		var formView = Ti.UI.createView({
@@ -1650,6 +1621,7 @@ function FormView() {
 				if (formDefinition.groups[i].toplevel){
 					dataset[i] = null;
 					dataset[i] = self.addSubgroupToDataset(dataset[i], i);
+					dataset.id = i + " " + entryData.length;
 				}
 			}
 		}
@@ -1670,7 +1642,7 @@ function FormView() {
 					if (formDefinition.groups[subgroup].subgroups[h].type == 'list') {
 						sg[formDefinition.groups[subgroup].subgroups[h].label] = [];
 					} else {
-						sgi[formDefinition.groups[subgroup].subgroups[h].label] = null;
+						sg[formDefinition.groups[subgroup].subgroups[h].label] = null;
 					}
 				}
 			}
@@ -1702,7 +1674,7 @@ function FormView() {
  		var navView = Ti.UI.createView({
  			zIndex: 3,
  			width: maxWidth - (minButtonWidth * 2) - 10,
- 			height: minButtonHeight + 20,
+ 			height: minButtonHeight + 15,
  			top: 0,
  			left: minButtonWidth + 5,
  			backgroundColor: '#000000'
@@ -1712,14 +1684,14 @@ function FormView() {
 		var closeBtn = Ti.UI.createButton({
 			width: minButtonWidth,
 			height: minButtonHeight,
-			title: 'menu',
+			title: 'save',
 			left: buttonSideMargin,
 			top: 10
 		});
 		formComponents.styleButton(closeBtn);
 		closeBtn.addEventListener('click',
 			function(e) {
-				alert(JSON.stringify(entryData));
+				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/'+currentTemplateName+'/'+currentFormName).write(JSON.stringify(entryData));
 				renderView.getParent().remove(renderView);
 			}
 		);
@@ -1739,17 +1711,7 @@ function FormView() {
 				entryData[currentDatasetIndex] = currentDataset;				
 			}
 		);
-		var titleLabel = Ti.UI.createLabel({
-				top: 13,
-				left: 100,
-				width: 120,
-				font: labelFont,
-				textAlign: 'center',
-				text: (currentDatasetIndex == entryData.length) ? '[ new ]' : '['+(currentDatasetIndex+1)+' of '+entryData.length+']',
-				color: '#ffffff'
-			});
-			
-		renderView.add(titleLabel);
+
 		renderView.add(closeBtn);
 		renderView.add(nextBtn);
 		var groupViews = [];
@@ -1773,7 +1735,7 @@ function FormView() {
 		for (var i=0;i<toplevelGroups.length;i++) {
 			var currGroup = toplevelGroups[i];
 			var currGroupView = Ti.UI.createView({
-				top: "10%",
+				top: 15 + minButtonHeight,
 				width: "100%",
 				height: (toplevelGroups.length > 1) ? "80%" : "90%",
 				backgroundColor: '#000000',
@@ -1836,7 +1798,7 @@ function FormView() {
 			
 			var tabScroll = Ti.UI.createScrollView();
 			
-			self.renderGroup(tabScroll, currGroup, navView, toplevelGroups[i].name, currentDataset[toplevelGroups[i].name]);
+			self.renderGroup(tabScroll, currGroup, navView, null, currentDataset[toplevelGroups[i].name]);
 			
 			currGroupView.add(tabScroll);
 			
@@ -1849,8 +1811,6 @@ function FormView() {
 	};
 
 	self.renderGroup = function(tabScroll, currGroup, navView, parentGroup, dataStore){
-		var currTop = 0;
-		
 		if (parentGroup) {
 			var parentButton = Ti.UI.createButton({
 				width: maxWidth - (2 * minButtonWidth) - 20,
@@ -1869,7 +1829,69 @@ function FormView() {
 			);
 			navView.add(parentButton);
 		}
+		
+		// check if this is a list or and instance
+		if (dataStore.length && parentGroup) {
+			var groupInstances = [];
+			for (var k=0;k<dataStore.length;k++){
+				var item = dataStore[k];
+				var label = Ti.UI.createLabel({
+					color: '#000000',
+					text: item.name ? item.name : formDefinition.groups[parentGroup].subgroups[currGroup.name].label + " " + k, 
+					font: labelFont,
+					height:'auto',
+					width:'auto'
+				});
+				var row = Titanium.UI.createTableViewRow({
+					height:minButtonHeight,
+					backgroundColor: '#ffffff',
+					bound: k
+				});
+				row.addEventListener('click', function(){
+					self.renderGroupContent(tabScroll, currGroup, navView, parentGroup, dataStore[this.bound]);
+					groupInstanceView.getParent().remove(groupInstanceView);
+				});
+				row.add(label);
+				groupInstances.push(row);
+			}
+			var label = Ti.UI.createLabel({
+				color: '#000000',
+				text: 'new',
+				font: labelFont,
+				height:'auto',
+				width:'auto'
+			});
+			var row = Titanium.UI.createTableViewRow({
+				height:minButtonHeight,
+				backgroundColor: '#ffffff'
+			});
+			row.addEventListener('click', function(){
+				dataStore[dataStore.length] = self.addSubgroupToDataset(dataStore, currGroup.name);
+				self.renderGroupContent(tabScroll, currGroup, navView, parentGroup, dataStore[dataStore.length - 1]);
+				groupInstanceView.getParent().remove(groupInstanceView);
+			});
+			row.add(label);
+			groupInstances.push(row);
 			
+			var groupInstanceView = Ti.UI.createTableView({
+				zIndex: 5,
+				top: buttonTopMargin + minButtonHeight + 10,
+				data: groupInstances,
+				style:Titanium.UI.iPhone.TableViewStyle.GROUPED,
+				height: '100%'
+			});
+			self.add(groupInstanceView);
+			
+		} else {
+			self.renderGroupContent(tabScroll, currGroup, navView, parentGroup, dataStore);
+		}
+	};
+		
+	self.renderGroupContent = function(tabScroll, currGroup, navView, parentGroup, dataStore){
+		var currTop = 0;
+		
+		tabScroll.visible = false;
+		
 		// iterate over the subgroups of this group
 		for (var j in currGroup.subgroups) {
 			if (currGroup.subgroups.hasOwnProperty(j)) {
@@ -1880,7 +1902,7 @@ function FormView() {
 					left: buttonSideMargin,
 					right: buttonSideMargin,
 					top: currTop,
-					bound: j
+					bound: [ currGroup.subgroups[j].label, j ]
 				});
 				formComponents.styleButton(subgroupButton);
 				subgroupButton.addEventListener('click',
@@ -1894,17 +1916,16 @@ function FormView() {
 						});
 						var sgTabScroll = Ti.UI.createScrollView();
 						sgView.add(sgTabScroll);
-						if (formDefinition.groups[parentGroup].subgroups[this.bound].type == 'list'){
-							if (! dataStore[this.bound].length) {
-								dataStore[this.bound] = self.addSubgroupToDataset(dataStore[this.bound], this.bound);
+						if (formDefinition.groups[currGroup.name].subgroups[this.bound[1]].type == 'list'){
+							if (! dataStore[this.bound[0]].length) {
+								dataStore[this.bound[0]] = self.addSubgroupToDataset(dataStore[this.bound[0]], this.bound[1]);
 							}
-							self.renderGroup(sgTabScroll, formDefinition.groups[this.bound], navView, this.bound, dataStore[this.bound][0]);
 						} else {
 							if (typeof dataStore[this.bound] == 'undefined') {
-								dataStore[this.bound] = self.addSubgroupToDataset(dataStore[this.bound], this.bound);
+								dataStore[this.bound[0]] = self.addSubgroupToDataset(dataStore[this.bound[0]], this.bound[1]);
 							}
-							self.renderGroup(sgTabScroll, formDefinition.groups[this.bound], navView, this.bound, dataStore[this.bound]);
 						}
+						self.renderGroup(sgTabScroll, formDefinition.groups[this.bound[1]], navView, currGroup.name, dataStore[this.bound[0]]);
 						tabScroll.getParent().add(sgView);
 					}
 				);
@@ -1928,7 +1949,11 @@ function FormView() {
 							font: labelFont,
 							top: currTop,
 							height:'auto',
-							width:'auto'
+							width: '45%',
+							bound: currField.description
+						});
+						textLabel.addEventListener('click', function(){
+							alert(this.bound);
 						});
 						
 						tabScroll.add(textLabel);
@@ -1938,13 +1963,13 @@ function FormView() {
 							color: '#000000',
 							top: currTop,
 							right: buttonSideMargin,
-							width: 300,
+							width: '45%',
 							value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
 							height: 'auto',
 							bound: [i,j]
 						});
 						textField.addEventListener('change', function(e){
-							dataStore[this.bound[j]] = this.value;
+							dataStore[this.bound[1]] = this.value;
 						});
 						
 						tabScroll.add(textField);
@@ -1962,24 +1987,27 @@ function FormView() {
 							left: buttonSideMargin,
 							top: currTop,
 							height:'auto',
-							width:'auto'
+							width:'40%',
+							bound: currField.description
+						});
+						textLabel.addEventListener('click', function(){
+							alert(this.bound);
 						});
 						
 						tabScroll.add(textLabel);
-						currTop += 30;
 						
 						var textField = Ti.UI.createTextField({
 							borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 							color: '#000000',
 							top: currTop,
-							right: buttonSideMargin,
-							width: 220,
+							left: '45%',
+							width: '45%',
 							value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
 							height: 'auto',
 							bound: [i,j]
 						});
 						textField.addEventListener('change', function(e){
-							dataStore[this.bound[j]] = this.value;
+							dataStore[this.bound[1]] = this.value;
 						});
 						
 						tabScroll.add(textField);
@@ -1987,8 +2015,8 @@ function FormView() {
 						var locationButton = Ti.UI.createButton({
 							title: 'get',
 					 	 	top: currTop,
-							left: 240,
-							width: minButtonWidth,
+							left: '90%',
+							width: '8%',
 							height: minButtonHeight,
 							bound: textField
 						});
@@ -2019,7 +2047,11 @@ function FormView() {
 							left: buttonSideMargin,
 							top: currTop,
 							height:'auto',
-							width:'auto'
+							width:'auto',
+							bound: currField.description
+						});
+						textLabel.addEventListener('click', function(){
+							alert(this.bound);
 						});
 						
 						tabScroll.add(textLabel);
@@ -2079,7 +2111,11 @@ function FormView() {
 								left: buttonSideMargin,
 								top: currTop,
 								height:'auto',
-								width:'auto'
+								width:'auto',
+								bound: currField.description
+							});
+							textLabel.addEventListener('click', function(){
+								alert(this.bound);
 							});
 						
 							tabScroll.add(textLabel);
@@ -2138,9 +2174,14 @@ function FormView() {
 							color:'#ffffff',
 							text: currField.label,
 							left: buttonSideMargin,
+							font: labelFont,
 							top: currTop,
 							height:'auto',
-							width:'auto'
+							width:'auto',
+							bound: currField.description
+						});
+						textLabel.addEventListener('click', function(){
+							alert(this.bound);
 						});
 						
 						tabScroll.add(textLabel);
@@ -2152,7 +2193,7 @@ function FormView() {
 															   titleOff:'no',
 															   top: currTop });
 						valueSwitch.addEventListener('change', function(e){
-							dataStore[this.bound[j]] = this.value;
+							dataStore[this.bound[1]] = this.value;
 						});
 						
 						if (j==0){
@@ -2171,7 +2212,11 @@ function FormView() {
 							top: currTop,
 							font: labelFont,
 							height:'auto',
-							width:'auto'
+							width:'45%',
+							bound: currField.description
+						});
+						textLabel.addEventListener('click', function(){
+							alert(this.bound);
 						});
 						
 						tabScroll.add(textLabel);
@@ -2181,13 +2226,13 @@ function FormView() {
 							color: '#000000',
 							top: currTop,
 							right: buttonSideMargin,
-							width: 300,
+							width: '45%',
 							value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
 							height: 'auto',
 							bound: [i,j]
 						});
 						textField.addEventListener('change', function(e){
-							dataStore[this.bound[j]] = this.value;
+							dataStore[this.bound[1]] = this.value;
 						});
 						
 						tabScroll.add(textField);
@@ -2201,6 +2246,8 @@ function FormView() {
 				}
 			}
 		}
+		
+		tabScroll.visible = true;
 	};
 	
 	// first have the user select a form instance
