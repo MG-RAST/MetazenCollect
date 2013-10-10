@@ -47,8 +47,6 @@ function FormView() {
 	var fieldTypes = ['text',
 					  'geolocation',
 					  'image',
-					  'list',
-					  'filterlist',
 					  'boolean',
 					  'date'];
 	var fieldValidations = ['-',
@@ -101,6 +99,10 @@ function FormView() {
 	// initialize variables that hold the current form-definition, required cvs and the entered data
 	var formDefinition = {};
 	var controlledVocabularies = {};
+	for (var i=0;i<cvFiles.length;i++){
+		var cv = JSON.parse(Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/cvs/'+cvFiles[i]).read().text);
+		controlledVocabularies[cv.label] = cv;
+	}
 	var entryData = [];
 	
 	// initialize state variables	
@@ -405,7 +407,7 @@ function FormView() {
 		
 		var titleLabel = Ti.UI.createLabel({
 			text: formDefinition.name,
-			top: 10,
+			top: 0,
 			font: labelFont,
 			width: 'auto',
 			height: 'auto',
@@ -625,7 +627,7 @@ function FormView() {
 			
 		var titleLabel = Ti.UI.createLabel({
 			text: currentGroup.name,
-			top: 10,
+			top: 0,
 			font: labelFont,
 			width: 'auto',
 			height: 'auto',
@@ -645,6 +647,7 @@ function FormView() {
 				var label = Ti.UI.createLabel({
 					color: '#000000',
 					text: currentGroup.fields[i].label || currentGroup.fields[i].name || i,
+					font: labelFont,
 					height:'auto',
 					width:'auto'
 				});
@@ -654,8 +657,9 @@ function FormView() {
 					bound: i
 				});
 				row.addEventListener('click', function(){
-					currentField = currentGroup.fields[i];
+					currentField = currentGroup.fields[this.bound];
 					self.editField();
+					editGroupView.getParent().remove(editGroupView);
 				});
 				row.add(label);
 				array.push(row);
@@ -875,6 +879,7 @@ function FormView() {
 			'name',
 			'label',
 			'type',
+			'validation type',
 			'validation',
 			'default value',
 			'description'			
@@ -902,51 +907,103 @@ function FormView() {
 		});
 		scrollView.add(labelField);
 		
-		var typeField = Ti.UI.createTextField({
+		var typeField = Ti.UI.createButton({
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: '#000000',
 			top: labellist.positions[2],
 			right: 10,
 			width: searchFieldWidth,
-			value: field.type,
-			editable: false,
+			title: field.type,
 			height: 'auto'
 		});
 		typeField.addEventListener('click',function(){
 			formComponents.select({
 				items: fieldTypes,
+				defaultValue: field.type,
 				rootWindow: self,
 				callback: function(value){
-					typeField.value = value;
+					typeField.title = value;
 				}
 			});
 		});
 		scrollView.add(typeField);
 		
-		var validationField = Ti.UI.createTextField({
+		var validationTypeField = Ti.UI.createButton({
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: '#000000',
 			top: labellist.positions[3],
 			right: 10,
 			width: searchFieldWidth,
-			value: field.validation,
+			title: field.validation.type,
 			height: 'auto'
 		});
-		validationField.addEventListener('click',function(){
+		validationTypeField.addEventListener('click',function(){
 			formComponents.select({
-				items: fieldValidations,
+				items: [ 'none', 'cv', 'regular-expression' ],
 				rootWindow: self,
+				defaultValue: field.validation.type,
 				callback: function(value){
-					validationField.value = value;
+					validationTypeField.title = value;
+					if (value == "regular-expression"){
+						validationField.enabled = true;
+						validationFieldButton.visible = false;
+					} else if (value == "none") {
+						validationField.enabled = false;
+						validationFieldButton.visible = false;
+					} else {
+						validationFieldButton.visible = true;
+					}
 				}
 			});
+		});
+		scrollView.add(validationTypeField);
+		
+		var validationFieldButton = Ti.UI.createButton({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: '#000000',
+			top: labellist.positions[4],
+			right: 10,
+			width: searchFieldWidth,
+			opacity: 1.0,
+			title: field.validation.type == 'cv' ? field.validation.value : "",
+			height: 'auto',
+			visible: field.validation.type == 'cv' ? true : false,
+			zIndex: 2
+		});
+		validationFieldButton.addEventListener('click',function(){
+			var currcvs = [];
+			for (var i in controlledVocabularies){
+				if (controlledVocabularies.hasOwnProperty(i)){
+					currcvs.push(i);
+				}
+			}
+			formComponents.select({
+				items: currcvs,
+				rootWindow: self,
+				callback: function(value){
+					validationFieldButton.title = value;
+				}
+			});
+		});
+		scrollView.add(validationFieldButton);
+		var validationField = Ti.UI.createTextField({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: '#000000',
+			top: labellist.positions[4],
+			right: 10,
+			width: searchFieldWidth,
+			opacity: 1.0,
+			zIndex: 1,
+			enabled: field.validation.type == 'none' ? false : true,
+			value: field.validation.type == 'none' ? "" : field.validation.value,
+			height: 'auto',
 		});
 		scrollView.add(validationField);
 		
 		var defaultField = Ti.UI.createTextField({
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: '#000000',
-			top: labellist.positions[4],
+			top: labellist.positions[5],
 			right: 10,
 			width: searchFieldWidth,
 			value: field.value,
@@ -959,7 +1016,7 @@ function FormView() {
 			borderColor: '#bbb',
 			borderRadius: 5,
 			color: '#000000',
-			top: labellist.positions[5],
+			top: labellist.positions[6],
 			right: 10,
 			width: searchFieldWidth,
 			fontSize: 24,
@@ -993,8 +1050,16 @@ function FormView() {
 			currentField.label = labelField.value;
 			currentField.description = descriptionField.value;
 			currentField.value = defaultField.value;
-			currentField.validation = validationField.value;
-			currentField.type = typeField.value;
+			if (validationTypeField.title == "none"){
+				currentField.validation = { "type": "none" };
+			} else if (validationTypeField.title == "regular-expression"){
+				currentField.validation = { "type": "regular-expression",
+											"value": validationField.value };
+			} else {
+				currentField.validation = { "type": "cv",
+											"value": validationFieldButton.title };
+			}
+			currentField.type = typeField.title;
 			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
 			alert('updated');
 			self.editGroup();
@@ -1560,6 +1625,7 @@ function FormView() {
 		var formLabel = Ti.UI.createLabel({
 			color:'#ffffff',
 			text: 'Export Form Data (' + currentFormName + ')',
+			font: labelFont,
 			top: 10,
 			height:'auto',
 			width:'auto'
@@ -1713,7 +1779,7 @@ function FormView() {
 		);
 
 		renderView.add(closeBtn);
-		renderView.add(nextBtn);
+		//renderView.add(nextBtn);
 		var groupViews = [];
 		
 		var tabMenu = Ti.UI.createView({
@@ -1941,52 +2007,14 @@ function FormView() {
 			if (currGroup.fields.hasOwnProperty(j)){
 				var currField = currGroup.fields[j];
 				switch (currField.type) {
-					case 'text':
+					case 'date':
 						var textLabel = Ti.UI.createLabel({
 							color:'#ffffff',
 							text: currField.label,
 							left: buttonSideMargin,
+							top: currTop,
+							height:'auto',
 							font: labelFont,
-							top: currTop,
-							height:'auto',
-							width: '45%',
-							bound: currField.description
-						});
-						textLabel.addEventListener('click', function(){
-							alert(this.bound);
-						});
-						
-						tabScroll.add(textLabel);
-						
-						var textField = Ti.UI.createTextField({
-							borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
-							color: '#000000',
-							top: currTop,
-							right: buttonSideMargin,
-							width: '45%',
-							value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
-							height: 'auto',
-							bound: [i,j]
-						});
-						textField.addEventListener('change', function(e){
-							dataStore[this.bound[1]] = this.value;
-						});
-						
-						tabScroll.add(textField);
-						if (j==0){
-							textField.focus();
-							currentControl = textField;
-						}
-						
-						currTop += globalLineHeight;
-					break;
-					case 'geolocation':
-						var textLabel = Ti.UI.createLabel({
-							color:'#ffffff',
-							text: currField.label,
-							left: buttonSideMargin,
-							top: currTop,
-							height:'auto',
 							width:'40%',
 							bound: currField.description
 						});
@@ -1996,12 +2024,93 @@ function FormView() {
 						
 						tabScroll.add(textLabel);
 						
+						var dateButton = Ti.UI.createButton({
+							borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+							color: '#000000',
+							top: currTop,
+							right: buttonSideMargin,
+							width: '45%',
+							editable: false,
+							title: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
+							height: 'auto',
+							bound: [i,j]
+						});
+						dateButton.addEventListener('click', function(){
+							var pickerView = Ti.UI.createView({
+								width: '100%',
+								height: '100%',
+								backgroundColor: '#000000',
+								top: 0,
+								zIndex: 10,
+								opacity: 1.0
+							});
+							var picker = Ti.UI.createPicker({
+							  type:Ti.UI.PICKER_TYPE_DATE,
+							  value:new Date(),
+							  top: '40%'
+							});
+							pickerView.add(picker);
+							var okButton = Ti.UI.createButton({
+								title: 'OK',
+								bottom: '20%',
+								left: '10%',
+								bound: this,
+								height: minButtonHeight,
+								width: minButtonWidth
+							});
+							okButton.addEventListener('click',function(){
+								var d = picker.getValue();
+								var day = d.getDate();
+								var month = d.getMonth() + 1;
+								var year = d.getFullYear();
+								var dstring = year+"/"+month+"/"+day;
+								this.bound.title = dstring;
+								dataStore[this.bound.bound[1]] = dstring;
+								self.remove(pickerView);
+							});
+							pickerView.add(okButton);
+							formComponents.styleButton(okButton);
+							var cancelButton = Ti.UI.createButton({
+								title: "Cancel",
+								bottom: '20%',
+								right: '10%',
+								height: minButtonHeight,
+								width: minButtonWidth
+							});
+							cancelButton.addEventListener('click',function(){
+								self.remove(pickerView);
+							});
+							formComponents.styleButton(cancelButton);
+							pickerView.add(cancelButton);
+							self.add(pickerView);
+						});
+						tabScroll.add(dateButton);
+						
+						currTop += globalLineHeight;
+					break;
+					case 'geolocation':
+						var textLabel = Ti.UI.createLabel({
+							color:'#ffffff',
+							text: currField.label,
+							left: buttonSideMargin,
+							top: currTop,
+							font: labelFont,
+							height:'auto',
+							width:'45%',
+							bound: currField.description
+						});
+						textLabel.addEventListener('click', function(){
+							alert(this.bound);
+						});
+						
+						tabScroll.add(textLabel);
+						
 						var textField = Ti.UI.createTextField({
 							borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 							color: '#000000',
 							top: currTop,
-							left: '45%',
-							width: '45%',
+							right: '8%',
+							width: '37%',
 							value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
 							height: 'auto',
 							bound: [i,j]
@@ -2015,12 +2124,11 @@ function FormView() {
 						var locationButton = Ti.UI.createButton({
 							title: 'get',
 					 	 	top: currTop,
-							left: '90%',
+							right: 0,
 							width: '8%',
-							height: minButtonHeight,
+							height: 'auto',
 							bound: textField
-						});
-						formComponents.styleButton(locationButton);									  
+						});								  
 						tabScroll.add(locationButton);
 						
 						if (j==0){
@@ -2046,6 +2154,7 @@ function FormView() {
 							text: currField.label,
 							left: buttonSideMargin,
 							top: currTop,
+							font: labelFont,
 							height:'auto',
 							width:'auto',
 							bound: currField.description
@@ -2055,23 +2164,24 @@ function FormView() {
 						});
 						
 						tabScroll.add(textLabel);
-						currTop += 20;
 						
 						var cameraButton = Ti.UI.createButton({
 							title: 'take picture',
 							width: minButtonWidth,
 							height: minButtonHeight,
 							top: currTop,
-							left: 200,
+							right: 10,
 						});
 						formComponents.styleButton(cameraButton);									
 						tabScroll.add(cameraButton);
 						
-						currTop += 60;
+						currTop += minButtonHeight + 5;
 						
 						var imageView = Titanium.UI.createImageView({
 										image: dataStore[currField.name] ? dataStore[currField.name] : currField['default'],
-										width: 'auto',
+										width: '90%',
+										left: '5%',
+										height: 300,
 										top: currTop,
 										bound: [i,j]
 									});
@@ -2083,7 +2193,7 @@ function FormView() {
 								saveToPhotoGallery: true,
 								success: function(e){
 									imageView.image = e.media;
-									currentDataset[formDefinition.groups[imageView.bound[0]].fields[imageView.bound[1]]] = e.media;
+									dataStore[imageView.bound[1]] = e.media.nativePath;
 								},
 								error: function(e){
 									alert('an error occurred while taking the picture');
@@ -2101,73 +2211,6 @@ function FormView() {
 						
 						currTop += 305;
 						
-					break;
-					case 'list':
-						if (currField.validation.type == 'cv') {
-							var cv = formDefinition.cvs[currField.validation.value];
-							var textLabel = Ti.UI.createLabel({
-								color:'#ffffff',
-								text: currField.label,
-								left: buttonSideMargin,
-								top: currTop,
-								height:'auto',
-								width:'auto',
-								bound: currField.description
-							});
-							textLabel.addEventListener('click', function(){
-								alert(this.bound);
-							});
-						
-							tabScroll.add(textLabel);
-						
-							currTop += 30;
-							
-							// select box
-							var tr = Ti.UI.create2DMatrix();
-							tr = tr.rotate(90);
- 
-							var drop_button =  Ti.UI.createButton({
-								style:Ti.UI.iPhone.SystemButton.DISCLOSURE,
-								transform:tr
-							});
-								
-							var textField = Ti.UI.createTextField({
-  								borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
- 								color: '#000000',
-								top: currTop,
-								left: buttonSideMargin,
-								width: 300,
-								editable: false,
-								value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
-								height: 'auto',
-								rightButton:drop_button,
-								rightButtonMode:Titanium.UI.INPUT_BUTTONMODE_ALWAYS,
-							});
-							textField.bound = cv;
-							
-							var selectView = Ti.UI.createScrollView({
-								top: 0,
-								backgroundColor: '#000000',
-								width: '100%',
-								height: '100%',
-								zIndex: 3
-							});
-							textField.addEventListener('click', function(e){
-								renderView.add(selectView);
-								formComponents.filterSelect({
-									view: selectView,
-									items: this.bound.terms,
-									bound: this,
-									defaultValue: textField.value,
-								});
-							});
-							
-							tabScroll.add(textField);
-													
-							currTop += 50;
-						} else {
-							alert('radio type fields must have a controlled vocabulary validation');
-						}
 					break;
 					case 'boolean':
 						var textLabel = Ti.UI.createLabel({
@@ -2212,36 +2255,79 @@ function FormView() {
 							top: currTop,
 							font: labelFont,
 							height:'auto',
-							width:'45%',
+							width:'auto',
 							bound: currField.description
 						});
 						textLabel.addEventListener('click', function(){
 							alert(this.bound);
 						});
-						
+					
 						tabScroll.add(textLabel);
 						
-						var textField = Ti.UI.createTextField({
-							borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
-							color: '#000000',
-							top: currTop,
-							right: buttonSideMargin,
-							width: '45%',
-							value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
-							height: 'auto',
-							bound: [i,j]
-						});
-						textField.addEventListener('change', function(e){
-							dataStore[this.bound[1]] = this.value;
-						});
+						if (currField.validation.type == 'cv') {
+							var c = currField.validation.value;
+							
+							// select box
+							var textField = Ti.UI.createButton({
+  								borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+ 								color: '#000000',
+								top: currTop,
+								right: buttonSideMargin,
+								width: '45%',
+								editable: false,
+								title: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
+								height: 'auto',
+								bound: [i,j,c]
+							});
+							
+							var selectView = Ti.UI.createScrollView({
+								top: 0,
+								backgroundColor: '#000000',
+								width: '100%',
+								height: '100%',
+								zIndex: 3
+							});
+							textField.addEventListener('click', function(e){
+								self.add(selectView);
+								formComponents.filterSelect({
+									view: selectView,
+									items: controlledVocabularies[this.bound[2]].terms.sort(),
+									bound: this,
+									callback: function(value, bound){
+										bound.title = value;
+										dataStore[bound.bound[1]] = value;
+									},
+									defaultValue: textField.title,
+								});
+							});
+							
+							tabScroll.add(textField);
+													
+							currTop += globalLineHeight;
+						} else {
+							var textField = Ti.UI.createTextField({
+								borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+								color: '#000000',
+								top: currTop,
+								right: buttonSideMargin,
+								width: '45%',
+								value: dataStore[currField.name] ? dataStore[currField.name] : (currField['default'] ? currField['default'] : ''),
+								height: 'auto',
+								bound: [i,j]
+							});
+							
+							textField.addEventListener('change', function(e){
+								dataStore[this.bound[1]] = this.value;
+							});
 						
-						tabScroll.add(textField);
-						if (h==0){
-							textField.focus();
-							currentControl = textField;
+							tabScroll.add(textField);
+							if (j==0){
+								textField.focus();
+								currentControl = textField;
+							}
+						
+							currTop += globalLineHeight;
 						}
-						
-						currTop += globalLineHeight;
 					break;
 				}
 			}

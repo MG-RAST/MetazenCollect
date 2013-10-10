@@ -112,14 +112,15 @@ function FormComponents(){
 				var row = Titanium.UI.createTableViewRow({
 					height:rowHeight,
 					backgroundColor: '#ffffff',
-					bound: label
+					bound: label,
+					externalBound: params.bound
 				});
 				row.add(label);
 				if (params.bound || params.callback){
 					row.addEventListener('click',function(){
 						listView.getParent().remove(listView);
 						if (typeof params.callback == 'function'){
-							params.callback.call(this, this.bound.text);
+							params.callback.call(this, this.bound.text, this.externalBound);
 						} else {
 							params.bound.value = this.bound.text;
 						}
@@ -157,11 +158,11 @@ function FormComponents(){
 			return rows;
 		},
 		select: function(params){
-			var rowHeight = params.rowHeight || 46;
+			var rowHeight = params.rowHeight || buttonHeight;
 			var skipRows = params.skipRows || 0;
 			var listView = Ti.UI.createScrollView({
 				top: 0,
-				backgroundColor: '#ffffff',
+				backgroundColor: '#000000',
 				width: '100%',
 				height: '100%',
 				zIndex: 3
@@ -210,7 +211,7 @@ function FormComponents(){
 			}
 		
 			var tableView = Ti.UI.createTableView({
-				top: buttonHeight + (rowHeight * skipRows),
+				top: buttonHeight + (rowHeight * skipRows) + 10,
 				data: array,
 				style:Titanium.UI.iPhone.TableViewStyle.GROUPED
 			});
