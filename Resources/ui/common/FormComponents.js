@@ -13,18 +13,44 @@ function FormComponents(){
 	}
 	
 	// set platform specific variables
-	var buttonHeight = 35;	
-	var buttonWidth = '95%';
-	var buttonFont = {fontSize: 25 };
-	var minButtonWidth = 120;
-	var labelFont = { fontSize: 25 };
+	var buttonHeight     = 35;	
+	var buttonWidth      = '95%';
+	var minButtonHeight  = 35;
+	var minButtonWidth   = 120;
+	var miniButtonWidth  = 50;
+	var buttonSideMargin = 5;
+	var buttonTopMargin  = 40;
+	var buttonFont       = { fontSize: 25 };
+	var labelFont        = { fontSize: 25 };
+	var globalLineHeight = 40;
+	var searchFieldWidth = 200;
+	var backTitle        = 'back';
 	
 	if (isTablet) {
-		minButtonWidth = 200;
-		buttonHeight = 85;
+		minButtonWidth   = 200;
+		buttonHeight     = 60;
+		globalLineHeight = 65;
 	}
 	
 	var self = {
+		osname: osname,
+		version: version,
+		maxHeight: maxHeight,
+		maxWidth: maxWidth,
+		isTablet: isTablet,
+		isAndroid: isAndroid,
+		buttonHeight: buttonHeight,
+		buttonWidth: buttonWidth,
+		miniButtonWidth: miniButtonWidth,
+		minButtonWidth: minButtonWidth,
+		minButtonHeight: buttonHeight,
+		buttonSideMargin: buttonSideMargin,
+		buttonTopMargin: buttonTopMargin,
+		buttonFont: buttonFont,
+		searchFieldWidth: searchFieldWidth,
+		labelFont: labelFont,
+		globalLineHeight: globalLineHeight,
+		
 		buttonMenu: function(params){
 			var buttons = {};
 			var currTop = 10;
@@ -69,7 +95,7 @@ function FormComponents(){
 			var listView = params.view;
 			var rowHeight = params.rowHeight || buttonHeight;
 			var cancel = Ti.UI.createButton({
-				top: 5,
+				top: 5 + (skipRows * rowHeight),
 				left: 5,
 			    title: params.cancelTitle || 'Cancel',
 				width: minButtonWidth,
@@ -81,12 +107,14 @@ function FormComponents(){
 				if (typeof params.cancel == 'function') {
 					params.cancel.call();
 				}
-				listView.getParent().remove(listView);
+				if (! params.noCancelBubble) {
+					listView.getParent().remove(listView);
+				}
 			});
 
 			var filterbox = Ti.UI.createTextField({
 			    width: maxWidth - 10 - minButtonWidth,
-			    top: 5,
+			    top: 5 + (skipRows * rowHeight),
 			    left: minButtonWidth + 10,
 			    height: buttonHeight,
 			    hintText: 'enter text to filter',

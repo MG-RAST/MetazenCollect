@@ -477,15 +477,23 @@ function FormView() {
 		});
 		newTextButton.addEventListener('click',function(){
 			if (newText.value.length){
-				formDefinition.groups.push({
-					name: newText.value,
-					label: newText.value,
-					description: "",
-					fields: []
-				});
-				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
-				listView.getParent().remove(listView);
-				self.groupEditor();
+				if (formDefinition.groups.hasOwnProperty(newText.value)) {
+					alert('a group of that name already exists in this template');
+				} else {
+					formDefinition.groups[newText.value] = {
+																name: newText.value,
+																label: newText.value,
+																description: "",
+																fields: {},
+																subgroups: {},
+																madatory: false,
+																toplevel: false 
+															};
+					currentGroup = formDefinition.groups[newText.value];
+					Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
+					listView.getParent().remove(listView);
+					self.editGroup();
+				}
 			} else {
 				alert('you need to enter a name for the group');
 			}
@@ -676,22 +684,58 @@ function FormView() {
 		});
 		formComponents.styleButton(addNewButton);
 		addNewButton.addEventListener('click', function(e){
+			currentField = {
+							"name": "new",
+							"label": "new",
+							"validation": { "type": "none"},
+							"description": "",
+							"default": "",
+							"type": "text"
+							};
+			currentGroup.fields["new"] = currentField;
 			self.editField();
+			editGroupView.getParent().remove(editGroupView);
 		});
 		editGroupView.add(addNewButton);
 		
-		var addNewSubgroupButton =  Ti.UI.createButton({
-			title: 'add group',
+		var editSubgroupsButton =  Ti.UI.createButton({
+			title: 'subgroups',
 			width: smallButton,
 			height: minButtonHeight,
 			left: buttonSideMargin + 5 + smallButton,
 			top: buttonTopMargin
 		});
-		formComponents.styleButton(addNewSubgroupButton);
-		addNewButton.addEventListener('click', function(e){
-			self.addSubgroup();
+		formComponents.styleButton(editSubgroupsButton);
+		editSubgroupsButton.addEventListener('click', function(e){
+			var validGroups = [];
+			for (var i in formDefinition.groups) {
+				if (formDefinition.groups.hasOwnProperty(i)){
+					var hasSubgroups = false;
+					for (var h in formDefinition.groups[i].subgroups){
+						if (formDefinition.groups[i].subgroups[h]) {
+							hasSubgroups = true;
+							break;
+						}
+					}
+					if (! hasSubgroups && ! currentGroup.subgroups.hasOwnProperty(i) && currentGroup.name != i){
+						validGroups.push(i);
+					}
+				}
+			}
+			if (validGroups.length){
+				var filterView = Ti.UI.createView({ width: '100%', top: 0, height: '100%', zIndex: 5, backgroundColor: '#000000' });
+				self.add(filterView);
+				formComponents.filterSelect({ view: filterView, items: validGroups, bound: editGroupView, callback: function(groupName, view) {
+						currentGroup.subgroups[groupName] = { label: groupName, mandatory: false, type: "instance" };
+						self.editSubgroup(groupName);
+						view.getParent().remove(view);
+					}
+				});
+			} else {
+				alert('There are no groups available to add. You can only add groups that do not have subgroups to avoid circular references.');
+			}
 		});
-		editGroupView.add(addNewSubgroupButton);
+		editGroupView.add(editSubgroupsButton);
 		
 		var generalGroupProperties =  Ti.UI.createButton({
 			title: 'edit properties',
@@ -724,20 +768,33 @@ function FormView() {
 				});
 				dialog.addEventListener('click',function(e){
 				    if (e.index == 1){
-				    	if (formDefinition.groups.length==1){
+				    	var groupLength = 0;
+				    	for (var i in formDefinition.groups){
+				    		if (formDefinition.groups.hasOwnProperty(i)){
+				    			groupLength++;	
+			    			}	
+				    	}
+				    	if (groupLength==1){
 				    		alert("The last group of a template cannot be deleted.");
 				    	} else {
-				    		for (var i=0;i<formDefinition.groups.length;i++){
-				    			if (formDefinition.groups[i].name == currentGroup.name) {
-				    				formDefinition.groups.splice(i,1);
-				    				break;
-				    			}
+				    		for (var i in formDefinition.groups){
+				    			if (formDefinition.groups.hasOwnProperty(i)){
+				    				if (formDefinition.groups[i].name == currentGroup.name) {
+					    				delete formDefinition.groups[i];
+					    				break;
+					    			}
+					    		}
 				    		}
 				    		Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
 				    		alert("group deleted");
-				    		currentGroup = formDefinition.groups[0];
+				    		for (var i in formDefinition.groups){
+								if (formDefinition.groups.hasOwnProperty(i)){
+				    				currentGroup = formDefinition.groups[i];
+				    				break;
+				    			}
+				    		}
 				    		
-				    		self.editGroup();
+				    		self.groupEditor();
 							editGroupView.getParent().remove(editGroupView);
 				    	}
 				    }
@@ -772,9 +829,96 @@ function FormView() {
 		self.add(editGroupView);
 	};
 	
-	// add a subgroup to a group
-	self.addSubgroup = function(){
-		alert('adding subgroup');
+	// show the subgroups of a group for selection
+	self.editSubgroups = function(){
+		
+	};
+	
+	// edit the properties of a subgroup
+	self.editSubgroup = function(groupName){
+		var subgroup = currentGroup.subgroups[groupName];
+		var propertySelectView = Ti.UI.createView({
+			top: 0,
+			backgroundColor: '#000000',
+			width: '100%',
+			height: '100%',
+			zIndex: 1
+		});
+		
+		var labellist = formComponents.labelList({view: propertySelectView, labels: [
+			'label',
+			'mandatory',
+			'type'
+		]});
+		
+		var cancelButton = Ti.UI.createButton({
+			width: minButtonWidth,
+			height: minButtonHeight,
+			title: 'cancel',
+			top: 10,
+			left: buttonSideMargin
+		});
+		cancelButton.addEventListener('click',function(){
+			self.editGroup();
+			propertySelectView.getParent().remove(propertySelectView);
+		});
+		formComponents.styleButton(cancelButton);
+		
+		var okButton = Ti.UI.createButton({
+			width: minButtonWidth,
+			height: minButtonHeight,
+			title: 'store',
+			top: 10,
+			right: buttonSideMargin
+		});
+		okButton.addEventListener('click',function(){
+			subgroup.lanel = labelField.value;
+			subgroup.mandatory = mandatoryField.value;
+			subgroup.type = typeField.value;
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currentTemplateName).write(JSON.stringify(formDefinition));
+			alert('changes stored');
+			self.editGroup();
+			propertySelectView.getParent().remove(propertySelectView);
+		});
+		formComponents.styleButton(okButton);
+		
+		propertySelectView.add(cancelButton);
+		propertySelectView.add(okButton);
+		
+		var labelField = Ti.UI.createTextField({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: '#000000',
+			top: labellist.positions[0],
+			right: 10,
+			width: searchFieldWidth,
+			value: subgroup.label,
+			height: 'auto'
+		});
+		propertySelectView.add(labelField);
+		
+		var mandatoryField = Ti.UI.createTextField({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: '#000000',
+			top: labellist.positions[1],
+			right: 10,
+			width: searchFieldWidth,
+			value: subgroup.mandatory,
+			height: 'auto'
+		});
+		propertySelectView.add(mandatoryField);
+		
+		var typeField = Ti.UI.createTextArea({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: '#000000',
+			top: labellist.positions[2],
+			right: 10,
+			width: searchFieldWidth,
+			value: subgroup.type,
+			height: 'auto'
+		});
+		propertySelectView.add(typeField);
+		
+		self.add(propertySelectView);
 	};
 	
 	// show the general property editor
@@ -1047,6 +1191,12 @@ function FormView() {
 			right: buttonSideMargin
 		});
 		okButton.addEventListener('click',function(){
+			if (nameField.value != currentField.name) {
+				var newField = { "name": nameField.value };
+				delete currentGroup.fields[currentField.name];
+				currentField = newField;
+				currentGroup.fields[currentField.name] = currentField;
+			}
 			currentField.label = labelField.value;
 			currentField.description = descriptionField.value;
 			currentField.value = defaultField.value;
