@@ -28,11 +28,7 @@ function Workflow() {
 	// switch to a new view, cleaning up the old
 	self.switchView = function (newView) {
 		if (status.currentView !== null) {
-			try {
-				self.remove(status.currentView);
-			} catch (error) {
-				
-			}
+			self.remove(status.currentView);
 		}
 		self.add(newView);
 		
@@ -233,6 +229,10 @@ function Workflow() {
 					if(e.index==0){
 						
 						// check if the chosen name is already taken
+						var dataDir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data', status.currentTemplate);
+						if (! dataDir.exists()) {
+						    dataDir.createDirectory();
+						}
 						var currentFormInstances = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/'+status.currentTemplate).getDirectoryListing();
 						for (var i=0;i<currentFormInstances.length;i++){
 							if(currentFormInstances[i]==e.text){
@@ -425,10 +425,12 @@ function Workflow() {
 		// title
 		var titleLabel = Ti.UI.createLabel({
 					color: '#ffffff',
-					text: status.currentGroupName+" - "+status.currentDataset, 
+					text: status.templateStructures[status.currentTemplate].groups[status.currentGroupName].label+" - "+status.currentDataset, 
 					font: formComponents.labelFont,
 					height:'auto',
-					width:'auto'
+					width:'auto',
+					align: 'left',
+					left: (formComponents.buttonSideMargin * 2) + formComponents.minButtonWidth
 				});
 		navView.add(titleLabel);
 		
@@ -443,7 +445,7 @@ function Workflow() {
 						font: formComponents.labelFont,
 						height:'auto',
 						width:'auto',
-						right: 5 + formComponents.minButtonWidth,
+						right: 10 + (formComponents.miniButtonWidth * 2),
 						zIndex: 10
 					});
 				navView.add(positionLabel);
@@ -499,58 +501,63 @@ function Workflow() {
 		
 		// add the subgroup buttons first
 		if (formDefinition.hasOwnProperty('subgroups')){
-			for (var i in formDefinition.subgroups) {
-				if (formDefinition.subgroups.hasOwnProperty(i)) {
-					var subgroupButton = Ti.UI.createButton({
-						width: maxWidth - 10,
-						height: formComponents.minButtonHeight,
-						title: formDefinition.subgroups[i].label,
-						left: formComponents.buttonSideMargin,
-						right: formComponents.buttonSideMargin,
-						top: currTop,
-						bound: [ formDefinition.subgroups[i].label, i ]
-					});
-					formComponents.styleButton(subgroupButton);
-					subgroupButton.addEventListener('click',
-						function(e) {
-							status.currentParentName = status.currentGroupName;
-							status.currentGroupIndex = 0;
-							status.currentGroupName = this.bound[1];
-							status.currentHierarchy.push({ 	"name": status.currentGroupName,
-															"index": status.currentGroupIndex });
-							self.showDatasetEdit();
-						}
-					);
-					tabScroll.add(subgroupButton);
-					currTop += formComponents.minButtonHeight + 5;
-				}
+			// sort the subgroups by index if available
+			// otherwise sort by name
+			var subgroups = formComponents.sortObjects(formDefinition.subgroups);
+			
+			// iterate over the subgroups and render a button for each one
+			for (var i=0; i<subgroups.length; i++) {
+				var subgroupButton = Ti.UI.createButton({
+					width: maxWidth - 10,
+					height: formComponents.minButtonHeight,
+					title: subgroups[i].label,
+					left: formComponents.buttonSideMargin,
+					right: formComponents.buttonSideMargin,
+					top: currTop,
+					bound: [ subgroups[i].label, subgroups[i].name ]
+				});
+				formComponents.styleButton(subgroupButton);
+				subgroupButton.addEventListener('click',
+					function(e) {
+						status.currentParentName = status.currentGroupName;
+						status.currentGroupIndex = 0;
+						status.currentGroupName = this.bound[1];
+						status.currentHierarchy.push({ 	"name": status.currentGroupName,
+														"index": status.currentGroupIndex });
+						self.showDatasetEdit();
+					}
+				);
+				tabScroll.add(subgroupButton);
+				currTop += formComponents.minButtonHeight + 5;
 			}
 		}
 		
 		// now add the entry fields if there are any
 		if (formDefinition.hasOwnProperty('fields')) {
-			for (var i in formDefinition.fields) {
-				if (formDefinition.fields.hasOwnProperty(i)){
-					var textLabel = Ti.UI.createLabel({
-						color:'#ffffff',
-						text: formDefinition.fields[i].label,
-						left: formComponents.buttonSideMargin,
-						top: currTop,
-						height:'auto',
-						font: formComponents.labelFont,
-						width:'auto',
-						bound: formDefinition.fields[i].description
-					});
-					textLabel.addEventListener('click', function(){
-						alert(this.bound);
-					});
-					tabScroll.add(textLabel);
-					var inputField = self.inputField(formDefinition.fields[i], self.getCurrentDataset(), currTop);
-					for (var h=0; h<inputField.elements.length; h++) {
-						tabScroll.add(inputField.elements[h]);
-					}
-					currTop += inputField.currTop ? inputField.currTop : formComponents.globalLineHeight;
+			// sort the fields by index if available
+			// otherwise sort by name
+			var fields = formComponents.sortObjects(formDefinition.fields);
+			
+			for (var i=0; i<fields.length; i++){
+				var textLabel = Ti.UI.createLabel({
+					color:'#ffffff',
+					text: fields[i].label,
+					left: formComponents.buttonSideMargin,
+					top: currTop,
+					height: formComponents.minButtonHeight,
+					font: formComponents.labelFont,
+					width:'auto',
+					bound: fields[i].description
+				});
+				textLabel.addEventListener('click', function(){
+					alert(this.bound);
+				});
+				tabScroll.add(textLabel);
+				var inputField = self.inputField(fields[i], self.getCurrentDataset(), currTop);
+				for (var h=0; h<inputField.elements.length; h++) {
+					tabScroll.add(inputField.elements[h]);
 				}
+				currTop += inputField.currTop ? inputField.currTop : formComponents.globalLineHeight;
 			}
 		}
 		
@@ -570,10 +577,10 @@ function Workflow() {
 					color: '#000000',
 					top: currTop,
 					right: formComponents.buttonSideMargin,
-					width: '45%',
 					editable: false,
 					title: fieldSet[fieldDefinition.name],
-					height: 'auto',
+					width: formComponents.buttonWidthPercent,
+					height: formComponents.buttonHeight,
 					bound: fieldDefinition.name
 				});
 				dateButton.addEventListener('click', function(){
@@ -633,10 +640,10 @@ function Workflow() {
 					borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 					color: '#000000',
 					top: currTop,
-					right: '8%',
-					width: '37%',
+					right: '9%',
+					width: '52%',
 					value: fieldSet[fieldDefinition.name],
-					height: 'auto',
+					height: formComponents.buttonHeight,
 					bound: fieldDefinition.name
 				});
 				textField.addEventListener('change', function(e){
@@ -646,9 +653,9 @@ function Workflow() {
 				var locationButton = Ti.UI.createButton({
 					title: 'get',
 			 	 	top: currTop,
-					right: 0,
+					right: formComponents.buttonSideMargin,
 					width: '8%',
-					height: 'auto',
+					height: formComponents.buttonHeight,
 					bound: textField
 				});								  
 				
@@ -657,7 +664,9 @@ function Workflow() {
 					loc.purpose = 'Your current location to be filled into the form.';
 					loc.getCurrentPosition(function(e2){
 						if (e2.success) {
-							locationButton.bound.value = e2.coords.latitude.toFixed(5) + ' lat, ' + e2.coords.longitude.toFixed(5) + ' lon';
+							var locVal = e2.coords.latitude.toFixed(5) + ' lat, ' + e2.coords.longitude.toFixed(5) + ' lon';
+							locationButton.bound.value = locVal;
+							fieldSet[locationButton.bound.bound] = locVal;
 						} else {
 							alert(e2.error);	
 						}
@@ -669,10 +678,10 @@ function Workflow() {
 			case 'image':
 				var cameraButton = Ti.UI.createButton({
 					title: 'take picture',
-					width: formComponents.minButtonWidth,
-					height: formComponents.minButtonHeight,
+					width: formComponents.buttonWidthPercent,
+					height: formComponents.buttonHeight,
 					top: currTop,
-					right: 10,
+					right: formComponents.buttonSideMargin,
 				});
 				formComponents.styleButton(cameraButton);									
 				
@@ -681,7 +690,7 @@ function Workflow() {
 								width: '90%',
 								left: '5%',
 								height: 300,
-								top: currTop,
+								top: currTop + formComponents.minButtonHeight + 5,
 								bound: fieldDefinition.name
 							});
 				
@@ -703,7 +712,7 @@ function Workflow() {
 					});
 				});
 				
-				return { elements: [ cameraButton, imageView ], currTop: 305 };					
+				return { elements: [ cameraButton, imageView ], currTop: (310 + formComponents.minButtonHeight) };					
 			break;
 			case 'boolean':
 				var valueSwitch = Ti.UI.createSwitch({ value: fieldSet[fieldDefinition.name],
@@ -718,7 +727,7 @@ function Workflow() {
 				return { elements: [ valueSwitch ] };
 			break;
 			default:
-				if (fieldDefinition.validation.type == 'cv') {
+				if (fieldDefinition.validation && fieldDefinition.validation.type == 'cv') {
 					var c = fieldDefinition.validation.value;
 					
 					// select box
@@ -727,10 +736,10 @@ function Workflow() {
 						color: '#000000',
 						top: currTop,
 						right: formComponents.buttonSideMargin,
-						width: '60%',
 						editable: false,
-						title: fieldValue,
-						height: 'auto',
+						title: fieldSet[fieldDefinition.name],
+						width: formComponents.buttonWidthPercent,
+						height: formComponents.buttonHeight,
 						bound: [fieldDefinition.name,c]
 					});
 					
@@ -743,19 +752,20 @@ function Workflow() {
 					});
 					textField.addEventListener('click', function(e){
 						self.add(selectView);
+						var items = status.templateStructures[status.currentTemplate].controlledVocabularies[this.bound[1]].terms.sort();
 						formComponents.filterSelect({
 							view: selectView,
-							items: status.templateStructures[status.currentTemplate].controlledVocabularies[this.bound[1]].terms.sort(),
-							bound: this,
-							callback: function(value, bound){
-								bound.title = value;
-								fieldSet[bound.bound[0]] = value;
-							},
+							items: items,
 							defaultValue: textField.title,
-							cancel: self.showDatasetEdit
+							cancel: self.showDatasetEdit,
+							bound: this,
+							callback: function(textValue, externalBound) {
+								fieldSet[externalBound.bound[0]] = textValue;
+								externalBound.title = textValue;
+							}
 						});
 					});
-					
+								
 					return { elements: [ textField ] };
 											
 				} else {
@@ -764,8 +774,8 @@ function Workflow() {
 						color: '#000000',
 						top: currTop,
 						right: formComponents.buttonSideMargin,
-						width: '60%',
 						value: fieldSet[fieldDefinition.name],
+						width: formComponents.buttonWidthPercent,
 						height: formComponents.buttonHeight,
 						bound: fieldDefinition.name
 					});

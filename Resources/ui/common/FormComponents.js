@@ -25,6 +25,7 @@ function FormComponents(){
 	var globalLineHeight = 40;
 	var searchFieldWidth = 200;
 	var backTitle        = 'back';
+	var buttonWidthPercent = "60%";
 	
 	if (isTablet) {
 		minButtonWidth   = 200;
@@ -50,6 +51,7 @@ function FormComponents(){
 		searchFieldWidth: searchFieldWidth,
 		labelFont: labelFont,
 		globalLineHeight: globalLineHeight,
+		buttonWidthPercent: buttonWidthPercent,
 		
 		buttonMenu: function(params){
 			var buttons = {};
@@ -108,7 +110,9 @@ function FormComponents(){
 					params.cancel.call();
 				}
 				if (! params.noCancelBubble) {
-					listView.getParent().remove(listView);
+					if (listView && listView.getParent()) {
+						listView.getParent().remove(listView);
+					}
 				}
 			});
 
@@ -146,7 +150,9 @@ function FormComponents(){
 				row.add(label);
 				if (params.bound || params.callback){
 					row.addEventListener('click',function(){
-						listView.getParent().remove(listView);
+						if (listView && listView.getParent()){
+							listView.getParent().remove(listView);
+						}
 						if (typeof params.callback == 'function'){
 							params.callback.call(this, this.bound.text, this.externalBound);
 						} else {
@@ -204,7 +210,9 @@ function FormComponents(){
 			});
 			self.styleButton(cancel);
 			cancel.addEventListener('click', function(){
-				listView.getParent().remove(listView);
+				if (listView && listView.getParent()){
+					listView.getParent().remove(listView);
+				}
 				params.callback.call(this, params.defaultValue);
 			});
 
@@ -228,7 +236,9 @@ function FormComponents(){
 					
 				row.add(label);
 				row.addEventListener('click',function(){
-					listView.getParent().remove(listView);
+					if (listView && listView.getParent()){
+						listView.getParent().remove(listView);
+					}
 					if (typeof params.callback == 'function'){
 						params.callback.call(this, this.bound.text);
 					} else {
@@ -286,6 +296,29 @@ function FormComponents(){
 			
 			return button;
 		},
+		sortObjects: function(objectHash){
+			var flist = self.values(objectHash);
+		    if (flist[0].hasOwnProperty('index')) {
+				flist.sort(self.propSort('index'));
+		    } else {
+				flist.sort(self.propSort('label'));
+		    }
+			return flist;
+		},
+		propSort: function(prop) {
+			return function(a, b) {
+				return a[prop] - b[prop];
+			};
+	   	},
+	   	values: function (object) {
+			var values = [];
+			for (var key in object) {
+			    if (object.hasOwnProperty(key)) {
+					values[values.length] = object[key];
+			    }
+			}
+			return values;
+	    },
 		alertDialog: function(params){
 			var dialog = null;
 			if (isAndroid){
