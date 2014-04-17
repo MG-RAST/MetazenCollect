@@ -1,7 +1,7 @@
 //Application Window Component Constructor
 function ApplicationWindow() {
 	//load component dependencies
-	var FormView = require('ui/common/FormView');
+	var Workflow = require('ui/common/Workflow');
 		
 	//create component instance
 	var self = Ti.UI.createWindow({
@@ -9,8 +9,8 @@ function ApplicationWindow() {
 	});
 		
 	//construct UI
-	var formView = new FormView();
-	self.add(formView);
+	var workflow = new Workflow();
+	self.add(workflow);
 	
 	return self;
 }
