@@ -124,7 +124,7 @@ function Workflow() {
 	// synch templates
 	self.synchTemplates = function(){
 		var templates = [	"http://140.221.84.144:8000/node/2736be4f-91b9-41d9-ae3d-d2e958f582fd",
-							"http://140.221.84.144:8000/node/c94f703b-66b5-4944-b079-ad58f3f96b36" ];
+							"http://140.221.84.144:8000/node/9886a6e1-0cde-4643-9153-3844ac63f758" ];
 		for (var i=0;i<templates.length;i++) {
 			var templateURL = templates[i];
 			var client = Ti.Network.createHTTPClient({
