@@ -92,7 +92,7 @@ function Workflow() {
 			// there are no templates, ask if we should check the server
 			var opts = {
 			  cancel: 1,
-			  options: ['Confirm', 'Cancel', 'Cancel'],
+			  options: ['Confirm', 'Cancel'],
 			  selectedIndex: 0,
 			  destructive: 0,
 			  title: 'There are no templates. Load from server?'
@@ -221,7 +221,7 @@ function Workflow() {
 		templateSelectView.add(titleLabel);
 		
 		var currentTemplateInstances = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data').getDirectoryListing();
-		var fs = formComponents.filterSelect({ view: templateSelectView, items: status.templates, skipRows: 1, cancel: self.homeScreen });
+		var fs = formComponents.filterSelect({ view: templateSelectView, items: status.templates, skipRows: 1, cancel: self.homeScreen, noCancelBubble: true });
 		for (var i=0;i<fs.length;i++){
 			fs[i].bound = i;
 			fs[i].addEventListener('click', function(){
@@ -313,7 +313,7 @@ function Workflow() {
 				ds2template.push({ "template": status.templates[i], "dataset": currentFormInstances[h] });
 			}
 		} 
-		var fs = formComponents.filterSelect({ view: datasetSelectView, items: datasetItems, skipRows: 1, cancel: self.homeScreen });
+		var fs = formComponents.filterSelect({ view: datasetSelectView, items: datasetItems, skipRows: 1, cancel: self.homeScreen, noCancelBubble: true });
 		for (var i=0;i<fs.length;i++){
 			fs[i].bound = i;
 			fs[i].addEventListener('click', function(){
