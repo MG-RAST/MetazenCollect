@@ -8,7 +8,7 @@
     <property name="acs-api-key-development" type="string">Vtt2QvPPbEeMkIJdC3JGv1vjXF4dxJvA</property>
     <id>gov.anl.mcs.paczian.metazen</id>
     <name>Metazen</name>
-    <version>0.0.1</version>
+    <version>0.0.2</version>
     <publisher>MG-RAST</publisher>
     <url>http://blog.metagenomics.anl.gov/</url>
     <description>Enter metadata for your metagenomics experiment using controlled vocabularies.</description>
