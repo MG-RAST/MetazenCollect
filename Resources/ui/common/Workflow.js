@@ -123,40 +123,44 @@ function Workflow() {
 	
 	// synch templates
 	self.synchTemplates = function(){
-		var templateURL = "http://140.221.84.144:8000/node/2736be4f-91b9-41d9-ae3d-d2e958f582fd";
-		var client = Ti.Network.createHTTPClient({
-	     	onload : function(e) {
-	     		var response = JSON.parse(this.responseText).data.attributes;
-     			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+response.name).write(JSON.stringify(response));
-				var tdir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/',response.name);
-				if (! tdir.exists()) {
-		 		   tdir.createDirectory();
-				}
-				
-				var templatePresent = false;
-				for (var i=0;i<status.templates.length;i++) {
-					if (status.templates[i] == response.name) {
-						templatePresent = true;
-						break;
+		var templates = [	"http://140.221.84.144:8000/node/2736be4f-91b9-41d9-ae3d-d2e958f582fd",
+							"http://140.221.84.144:8000/node/001d041d-955e-41ec-90f6-3618ca53cd8b" ];
+		for (var i=0;i<templates.length;i++) {
+			var templateURL = templates[i];
+			var client = Ti.Network.createHTTPClient({
+		     	onload : function(e) {
+		     		var response = JSON.parse(this.responseText).data.attributes;
+	     			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+response.name).write(JSON.stringify(response));
+					var tdir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/',response.name);
+					if (! tdir.exists()) {
+			 		   tdir.createDirectory();
 					}
-				}
-				if (! templatePresent) {
-					status.templates.push(response.name);
-				}
-				
-				alert('updated templates');
-		    },
-	     	onerror : function(e) {
-	         	alert('error: '+e.error);
-	     	},
-	     	timeout : 5000  // in milliseconds
-		 });
-		 
-		 // Prepare the connection.
- 		client.open("GET", templateURL);
- 		
- 		// Send the request.
- 		client.send();
+					
+					var templatePresent = false;
+					for (var i=0;i<status.templates.length;i++) {
+						if (status.templates[i] == response.name) {
+							templatePresent = true;
+							break;
+						}
+					}
+					if (! templatePresent) {
+						status.templates.push(response.name);
+					}
+					
+					alert('updated templates');
+			    },
+		     	onerror : function(e) {
+		         	alert('error: '+e.error);
+		     	},
+		     	timeout : 5000  // in milliseconds
+			 });
+			 
+			 // Prepare the connection.
+	 		client.open("GET", templateURL);
+	 		
+	 		// Send the request.
+	 		client.send();
+	 	}
 	};
 	
 	// VIEWS
@@ -683,7 +687,7 @@ function Workflow() {
 					top: currTop,
 					right: formComponents.buttonSideMargin,
 				});
-				formComponents.styleButton(cameraButton);									
+				formComponents.styleButton(cameraButton);
 				
 				var imageView = Titanium.UI.createImageView({
 								image: fieldSet[fieldDefinition.name],
