@@ -168,7 +168,7 @@ function Workflow() {
 	// initial screen
 	self.homeScreen = function() {
 		var homeView = Ti.UI.createView({
-			top: 0,
+			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
 			height: '100%',
@@ -201,7 +201,7 @@ function Workflow() {
 	// template selection
 	self.showTemplateSelect = function(){
 		var templateSelectView = Ti.UI.createView({
-			top: 0,
+			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
 			height: '100%',
@@ -285,7 +285,7 @@ function Workflow() {
 	// select an already started dataset to edit
 	self.showDatasetSelect = function() {
 		var datasetSelectView = Ti.UI.createView({
-			top: 0,
+			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
 			height: '100%',
@@ -374,6 +374,7 @@ function Workflow() {
 		
 		// create the view
 		var editDatasetView = Ti.UI.createView({
+			top: formComponents.topMargin,
 			width: '100%',
 			height: '100%',
 			zIndex: 2,
@@ -393,7 +394,7 @@ function Workflow() {
  
  		// button to close the current view and go one level higher
  		// or to the home screen if we are at the top level
- 		var closeBtnTitle = "save";
+ 		var closeBtnTitle = "done";
  		if (status.currentGroupName != status.currentTemplateRoot) {
  			closeBtnTitle = status.currentParentName;
  		}
@@ -587,6 +588,7 @@ function Workflow() {
 					height: formComponents.buttonHeight,
 					bound: fieldDefinition.name
 				});
+				formComponents.styleButton(dateButton);
 				dateButton.addEventListener('click', function(){
 					var pickerView = Ti.UI.createView({
 						width: '100%',
@@ -661,7 +663,8 @@ function Workflow() {
 					width: '8%',
 					height: formComponents.buttonHeight,
 					bound: textField
-				});								  
+				});			
+				formComponents.styleButton(locationButton);					  
 				
 				locationButton.addEventListener('click', function(e){
 					var loc = Ti.Geolocation;
@@ -723,7 +726,7 @@ function Workflow() {
 													   bound: fieldDefinition.name,
 													   titleOn:'yes',
 													   titleOff:'no',
-													   top: currTop });
+													   top: currTop + (formComponents.minButtonHeight / 2) - 15 });
 				valueSwitch.addEventListener('change', function(e){
 					fieldSet[this.bound] = this.value;
 				});
@@ -746,9 +749,10 @@ function Workflow() {
 						height: formComponents.buttonHeight,
 						bound: [fieldDefinition.name,c]
 					});
+					formComponents.styleButton(textField);
 					
 					var selectView = Ti.UI.createScrollView({
-						top: 0,
+						top: formComponents.topMargin,
 						backgroundColor: '#000000',
 						width: '100%',
 						height: '100%',
@@ -797,7 +801,7 @@ function Workflow() {
 	// manage files
 	self.manageFiles = function(){
 		var manageView = Ti.UI.createView({
-			top: 0,
+			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
 			height: '100%',
@@ -832,7 +836,7 @@ function Workflow() {
 	// show all user created files and allow the user to delete them
 	self.showFileDelete = function() {
 		var manageView = Ti.UI.createView({
-			top: 0,
+			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
 			height: '100%',
@@ -908,7 +912,7 @@ function Workflow() {
 	// export templates to email
 	self.showTemplateExport = function () {
 		var manageView = Ti.UI.createView({
-			top: 0,
+			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
 			height: '100%',
@@ -945,7 +949,7 @@ function Workflow() {
 	// export datasets to email
 	self.showDatasetExport = function () {
 		var manageView = Ti.UI.createView({
-			top: 0,
+			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
 			height: '100%',

@@ -3,7 +3,7 @@
 #type:mobile
 #guid:7339cd94-1f2e-4fad-8d57-d8b11200c0c2
 #version:1.0
-#publisher:Tobias Paczian
-#url:http://metagenomics.anl.gov/metazen.cgi
+#publisher:MG-RAST
+#url:http://blog.metagenomics.anl.gov/
 #image:appicon.png
 #desc:Enter metadata for your metagenomics experiment using controlled vocabularies.

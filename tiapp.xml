@@ -8,7 +8,7 @@
     <property name="acs-api-key-development" type="string">Vtt2QvPPbEeMkIJdC3JGv1vjXF4dxJvA</property>
     <id>gov.anl.mcs.paczian.metazen</id>
     <name>Metazen</name>
-    <version>0.0.2</version>
+    <version>1.0.0</version>
     <publisher>MG-RAST</publisher>
     <url>http://blog.metagenomics.anl.gov/</url>
     <description>Enter metadata for your metagenomics experiment using controlled vocabularies.</description>
@@ -43,9 +43,7 @@
         </splash>
         <theme>default</theme>
     </mobileweb>
-    <modules>
-        <module platform="commonjs">ti.cloud</module>
-    </modules>
+    <modules/>
     <deployment-targets>
         <target device="tizen">false</target>
         <target device="blackberry">false</target>

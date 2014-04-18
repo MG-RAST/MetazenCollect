@@ -21,11 +21,14 @@ function FormComponents(){
 	var buttonSideMargin = 5;
 	var buttonTopMargin  = 40;
 	var buttonFont       = { fontSize: 25 };
+	var buttonFontColor  = "#333333";
 	var labelFont        = { fontSize: 25 };
+	var labelFontColor   = "#333333";
 	var globalLineHeight = 40;
 	var searchFieldWidth = 200;
 	var backTitle        = 'back';
 	var buttonWidthPercent = "60%";
+	var topMargin        = 10;
 	
 	if (isTablet) {
 		minButtonWidth   = 200;
@@ -52,6 +55,7 @@ function FormComponents(){
 		labelFont: labelFont,
 		globalLineHeight: globalLineHeight,
 		buttonWidthPercent: buttonWidthPercent,
+		topMargin: topMargin,
 		
 		buttonMenu: function(params){
 			var buttons = {};
@@ -274,13 +278,13 @@ function FormComponents(){
 			view.add(testView);
 		},
 		styleButton: function(button){
-			button.color = '#ffffff';
+			button.color = buttonFontColor;
 			button.font = buttonFont;
 			button.backgroundGradient = {
 				type: 'linear',
 		        startPoint: { x: '50%', y: '0%' },
 		        endPoint: { x: '50%', y: '100%' },
-		        colors:['#0088CC', '#0044CC']};
+		        colors:['#FFFFFF', '#E6E6E6']};
 	        button.borderRadius = 5;
 			button.backgroundImage = null;
 			if (! button.width) {
@@ -288,7 +292,8 @@ function FormComponents(){
 				button.height = 30;
 			}
 			button.addEventListener('touchstart',function(){
-				this.backgroundColor = '#0044CC';
+				this.backgroundColor = '#E6E6E6';
+				this.color = buttonFontColor;
 			});
 			button.addEventListener('touchend',function(){
 				this.backgroundColor = null;
