@@ -123,7 +123,70 @@ function Workflow() {
 		});
 		splashScreen.add(logo);
 		
-		// put in the login form
+		self.checkLogin(splashScreen);
+			
+		// show the screen
+		self.switchView(splashScreen);
+	};
+	
+	self.checkLogin = function (view) {
+		// check if there is already a user with a valid token
+		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').exists()) {
+			var user = JSON.parse(Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').read().text);
+			var client = Ti.Network.createHTTPClient({
+		     	onload : function(e) {
+		     		var response;
+		     		try {
+		     			response = JSON.parse(this.responseText);
+		     		} catch (error) {
+		     			self.loginForm(view);
+	     				return;
+		     		}
+	     			if (response.ERROR) {
+	     				var dialog = Ti.UI.createAlertDialog({
+	     					title: "Session Expired",
+	     					message: "Your session has expired, you need to log in again.",
+	     					buttonNames: ["OK"]
+	     				});
+	     				dialog.show();
+	     				self.loginForm(view);
+	     			} else {
+	     				self.synchTemplates();
+	     				var dialog = Ti.UI.createAlertDialog({
+	     					title: "",
+	     					message: "Welcome back "+user.firstname+" "+user.lastname,
+	     					buttonNames: ["OK"]
+	     				});
+	     				dialog.addEventListener('click', function(e){
+	     					self.homeScreen();
+	     				});
+	     				dialog.show();
+	     				user.token = response.token;
+	     				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').write(JSON.stringify(user));
+	     				self.user = user;
+	     			}
+			    },
+		     	onerror : function(e) {
+		         	self.loginForm(view);
+		     	},
+		     	timeout : 5000  // in milliseconds
+			});
+			 
+		 	// Prepare the connection.
+		 	client.open("GET", loginURL);
+	 		
+	 		// set auth
+			var header = user.token;
+			client.setRequestHeader('auth', header);
+			 
+			// Send the request.
+			client.send();
+		} else {
+			self.loginForm(view);
+		}
+	};
+	
+	self.loginForm = function (view) {
 		var loginField = Ti.UI.createTextField({
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: formComponents.textFontColor,
@@ -193,7 +256,8 @@ function Workflow() {
 	     					self.homeScreen();
 	     				});
 	     				dialog.show();
-	     				self.token = response.token;
+	     				self.user = response;
+	     				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').write(JSON.stringify(self.user));
 	     			}
 			    },
 		     	onerror : function(e) {
@@ -218,12 +282,9 @@ function Workflow() {
 			client.send();
 		});
 		
-		splashScreen.add(loginField);
-		splashScreen.add(passwordField);
-		splashScreen.add(sendBtn);
-		
-		// show the screen
-		self.switchView(splashScreen);
+		view.add(loginField);
+		view.add(passwordField);
+		view.add(sendBtn);
 	};
 	
 	// SERVER QUERIES
@@ -294,15 +355,15 @@ function Workflow() {
 			zIndex: 1
 		});
 		
-		var buttons = formComponents.buttonMenu(['spacer','enter new dataset','view / edit data','view / edit templates', 'manage files'], 60);
+		var buttons = formComponents.buttonMenu(['spacer','enter new dataset','view / edit data','view / edit templates', 'options'], 20);
 		buttons['enter new dataset'].addEventListener('click',self.showTemplateSelect);
 		homeView.add(buttons['enter new dataset']);
 		buttons['view / edit data'].addEventListener('click',self.showDatasetSelect);
 		homeView.add(buttons['view / edit data']);
 		//buttons['view / edit templates'].addEventListener('click',self.showTemplateEdit);
 		//homeView.add(buttons['view / edit templates']);
-		buttons['manage files'].addEventListener('click',self.manageFiles);
-		homeView.add(buttons['manage files']);
+		buttons['options'].addEventListener('click',self.manageFiles);
+		homeView.add(buttons['options']);
 				
 		var label = Ti.UI.createLabel({
 			color: formComponents.labelFontColor,
@@ -549,7 +610,7 @@ function Workflow() {
 		// title
 		var titleLabel = Ti.UI.createLabel({
 					color: formComponents.labelFontColor,
-					text: status.templateStructures[status.currentTemplate].groups[status.currentGroupName].label+" - "+status.currentDataset, 
+					text: status.templateStructures[status.currentTemplate].groups[status.currentGroupName].label, 
 					font: formComponents.labelFont,
 					height:'auto',
 					width:'auto',
@@ -570,7 +631,8 @@ function Workflow() {
 						font: formComponents.labelFont,
 						height:'auto',
 						width:'auto',
-						right: 10 + (formComponents.miniButtonWidth * 2),
+						top: "8px",
+						right: formComponents.buttonSideMargin + 2 + formComponents.miniButtonWidth,
 						zIndex: 10
 					});
 				navView.add(positionLabel);
@@ -579,7 +641,7 @@ function Workflow() {
 						width: formComponents.miniButtonWidth,
 						height: formComponents.buttonHeight,
 						title: "<",
-						right: formComponents.buttonSideMargin + 5 + formComponents.miniButtonWidth,
+						right: formComponents.buttonSideMargin + 4 + formComponents.miniButtonWidth + 55,
 						top: 0,
 						zIndex: 10
 					});

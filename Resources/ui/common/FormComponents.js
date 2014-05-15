@@ -16,7 +16,7 @@ function FormComponents(){
 	var buttonHeight     = 25;	
 	var buttonWidth      = '95%';
 	var smallButtonWidth = 65;
-	var miniButtonWidth  = 50;
+	var miniButtonWidth  = 25;
 	var buttonWidthPercent = "60%";
 	var buttonSideMargin = 5;
 	var buttonTopMargin  = 40;
