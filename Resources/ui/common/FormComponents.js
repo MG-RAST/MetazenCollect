@@ -20,9 +20,9 @@ function FormComponents(){
 	var miniButtonWidth  = 50;
 	var buttonSideMargin = 5;
 	var buttonTopMargin  = 40;
-	var buttonFont       = { fontSize: 25 };
+	var buttonFont       = { fontSize: 15 };
 	var buttonFontColor  = "#333333";
-	var labelFont        = { fontSize: 25 };
+	var labelFont        = { fontSize: 15 };
 	var labelFontColor   = "#333333";
 	var globalLineHeight = 40;
 	var searchFieldWidth = 200;
@@ -34,6 +34,8 @@ function FormComponents(){
 		minButtonWidth   = 200;
 		buttonHeight     = 60;
 		globalLineHeight = 65;
+		buttonFont       = { fontSize: 25 };
+		labelFont        = { fontSize: 25 };
 	}
 	
 	var self = {
