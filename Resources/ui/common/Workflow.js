@@ -161,8 +161,6 @@ function Workflow() {
 	     					self.homeScreen();
 	     				});
 	     				dialog.show();
-	     				user.token = response.token;
-	     				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').write(JSON.stringify(user));
 	     				self.user = user;
 	     			}
 			    },
