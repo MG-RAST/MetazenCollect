@@ -13,29 +13,34 @@ function FormComponents(){
 	}
 	
 	// set platform specific variables
-	var buttonHeight     = 35;	
+	var buttonHeight     = 25;	
 	var buttonWidth      = '95%';
-	var minButtonHeight  = 35;
-	var minButtonWidth   = 120;
+	var smallButtonWidth = 65;
 	var miniButtonWidth  = 50;
+	var buttonWidthPercent = "60%";
 	var buttonSideMargin = 5;
 	var buttonTopMargin  = 40;
-	var buttonFont       = { fontSize: 15 };
+	var buttonFont       = { fontSize: '12px' };
 	var buttonFontColor  = "#333333";
-	var labelFont        = { fontSize: 15 };
-	var labelFontColor   = "#333333";
+	
+	var labelFont        = { fontSize: '12px' };
+	var labelFontColor   = "#CCCCCC";
+	
+	var textFont        = { fontSize: '12px' };
+	var textFontColor   = "#333333";
+	
 	var globalLineHeight = 40;
 	var searchFieldWidth = 200;
+	
 	var backTitle        = 'back';
-	var buttonWidthPercent = "60%";
-	var topMargin        = 10;
+	var topMargin        = "100px";
 	
 	if (isTablet) {
-		minButtonWidth   = 200;
 		buttonHeight     = 60;
 		globalLineHeight = 65;
 		buttonFont       = { fontSize: 25 };
 		labelFont        = { fontSize: 25 };
+		textFont        = { fontSize: 25 };
 	}
 	
 	var self = {
@@ -45,23 +50,33 @@ function FormComponents(){
 		maxWidth: maxWidth,
 		isTablet: isTablet,
 		isAndroid: isAndroid,
+
 		buttonHeight: buttonHeight,
 		buttonWidth: buttonWidth,
+		smallButtonWidth: smallButtonWidth,
 		miniButtonWidth: miniButtonWidth,
-		minButtonWidth: minButtonWidth,
-		minButtonHeight: buttonHeight,
+		buttonWidthPercent: buttonWidthPercent,
 		buttonSideMargin: buttonSideMargin,
 		buttonTopMargin: buttonTopMargin,
 		buttonFont: buttonFont,
-		searchFieldWidth: searchFieldWidth,
+		buttonFontColor: buttonFontColor,
+		
 		labelFont: labelFont,
+		labelFontColor: labelFontColor,
+		
+		textFont: textFont,
+		textFontColor: textFontColor,
+		
 		globalLineHeight: globalLineHeight,
-		buttonWidthPercent: buttonWidthPercent,
+		searchFieldWidth: searchFieldWidth,
+		backTitle: backTitle,
 		topMargin: topMargin,
 		
-		buttonMenu: function(params){
+		buttonMenu: function(params, currTop){
 			var buttons = {};
-			var currTop = 10;
+			if (! currTop) {
+				currTop = 10;
+			}
 			for (i=0;i<params.length;i++){
 				buttons[params[i]] = Ti.UI.createButton({
 					title: params[i],
@@ -106,7 +121,7 @@ function FormComponents(){
 				top: 5 + (skipRows * rowHeight),
 				left: 5,
 			    title: params.cancelTitle || 'Cancel',
-				width: minButtonWidth,
+				width: smallButtonWidth,
 				height: buttonHeight,
 			
 			});
@@ -123,13 +138,14 @@ function FormComponents(){
 			});
 
 			var filterbox = Ti.UI.createTextField({
-			    width: maxWidth - 10 - minButtonWidth,
+			    width: maxWidth - 10 - smallButtonWidth,
 			    top: 5 + (skipRows * rowHeight),
-			    left: minButtonWidth + 10,
+			    left: smallButtonWidth + 10,
 			    height: buttonHeight,
+			    font: labelFont,
 			    hintText: 'enter text to filter',
 			    color: '#000000',
-			    backgroundColor: '#ffffff',
+			    //backgroundColor: '#ffffff',
 			    borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED
 			});
 		
@@ -208,7 +224,7 @@ function FormComponents(){
 				zIndex: 3
 			});
 			var cancel = Ti.UI.createButton({
-				width: minButtonWidth,
+				width: smallButtonWidth,
 				height: buttonHeight,
 				top: 5,
 				left: 5,
@@ -344,7 +360,7 @@ function FormComponents(){
 					title: 'OK',
 					bottom: 10,
 					left: 10,
-					width: minButtonWidth,
+					width: smallButtonWidth,
 					height: buttonHeight,
 				});
 				okButton.addEventListener('click',function(){
@@ -358,7 +374,7 @@ function FormComponents(){
 					title: 'cancel',
 					bottom: 10,
 					right: 10,
-					width: minButtonWidth,
+					width: smallButtonWidth,
 					height: buttonHeight,
 				});
 				cancelButton.addEventListener('click',function(){
