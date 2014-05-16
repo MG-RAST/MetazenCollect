@@ -11,6 +11,7 @@ function FormComponents(){
 	if (osname === 'android') {
 		isAndroid = true;
 	}
+	var isHighRes = (Ti.Platform.displayCaps.density == "high") ? true : false;
 	
 	// set platform specific variables
 	var buttonHeight     = 25;	
@@ -34,13 +35,27 @@ function FormComponents(){
 	
 	var backTitle        = 'back';
 	var topMargin        = "100px";
+	var titleOffset      = "8px";
+	var indexWidth       = 55;
+	var splitWidthLeft   = '52%';
+	var splitWidthRight  = '8%';
 	
 	if (isTablet) {
 		buttonHeight     = 60;
 		globalLineHeight = 65;
+		smallButtonWidth = 120;
+		miniButtonWidth  = 50;
+		titleOffset      = "14px";
 		buttonFont       = { fontSize: 25 };
 		labelFont        = { fontSize: 25 };
-		textFont        = { fontSize: 25 };
+		textFont         = { fontSize: 25 };
+		indexWidth       = 109;
+		splitWidthLeft   = '51%';
+		splitWidthRight  = '9%';
+		
+		if (isHighRes) {
+			topMargin        = "180px";
+		}
 	}
 	
 	var self = {
@@ -71,6 +86,10 @@ function FormComponents(){
 		searchFieldWidth: searchFieldWidth,
 		backTitle: backTitle,
 		topMargin: topMargin,
+		titleOffset: titleOffset,
+		indexWidth: indexWidth,
+		splitWidthLeft: splitWidthLeft,
+		splitWidthRight: splitWidthRight,
 		
 		buttonMenu: function(params, currTop){
 			var buttons = {};

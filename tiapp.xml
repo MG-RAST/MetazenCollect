@@ -6,7 +6,7 @@
     <property name="acs-oauth-secret-development" type="string">yDC87B5DjF4GdeRW8WJt44Xw70Qk6ewR</property>
     <property name="acs-oauth-key-development" type="string">XAbo6uunoLLcNi3deFYNpAJPNDjH7qPP</property>
     <property name="acs-api-key-development" type="string">Vtt2QvPPbEeMkIJdC3JGv1vjXF4dxJvA</property>
-    <id>gov.anl.mcs.paczian.metazen</id>
+    <id>gov.anl.mcs.metazen</id>
     <name>Metazen</name>
     <version>1.0.0</version>
     <publisher>MG-RAST</publisher>
@@ -50,7 +50,7 @@
         <target device="android">true</target>
         <target device="ipad">true</target>
         <target device="iphone">true</target>
-        <target device="mobileweb">true</target>
+        <target device="mobileweb">false</target>
     </deployment-targets>
     <sdk-version>3.2.3.GA</sdk-version>
 </ti:app>

@@ -1,6 +1,8 @@
 function Workflow() {
 	// global config variables
 	var loginURL = "http://api.metagenomics.anl.gov/?verbosity=verbose";
+	var defaultServer = "http://140.221.84.144:8000";
+	var currentServer = defaultServer;
 	var templateURLs = [
 						// "http://140.221.84.144:8000/node/2736be4f-91b9-41d9-ae3d-d2e958f582fd", // MG-RAST
 						"http://140.221.84.144:8000/node/9886a6e1-0cde-4643-9153-3844ac63f758" // Demo
@@ -90,11 +92,18 @@ function Workflow() {
 			}
 		}
 		
+		// check the server url
+		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/server').exists()) {
+			currentServer = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/server').read().text;
+		} else {
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/server').write(currentServer);
+		}
+		
 		if (norelay){
 			return;
 		}
 		
-		// add the logo
+		// add the logo, visible in all views except splash
 		var logo = Ti.UI.createImageView({
 			image:'metazen_logo_wide.png',
 			width: '99%',
@@ -105,6 +114,65 @@ function Workflow() {
 		self.showSplash();
 	};
 	
+	// SERVER QUERIES
+	
+	// synch templates
+	self.synchTemplates = function(){
+		for (var i=0;i<templateURLs.length;i++) {
+			var templateURL = templateURLs[i];
+			var client = Ti.Network.createHTTPClient({
+		     	onload : function(e) {
+		     		var response;
+		     		try {
+		     			response = JSON.parse(this.responseText).data.attributes;
+		     		} catch (error) {
+		     			var dialog = Ti.UI.createAlertDialog({
+	     					title: "synchronysation error",
+	     					message: "the template server could not be reached",
+	     					buttonNames: ["OK"]
+	     				});
+	     				dialog.show();
+	     				return;
+		     		}
+	     			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+response.name).write(JSON.stringify(response));
+					var tdir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/',response.name);
+					if (! tdir.exists()) {
+			 		   tdir.createDirectory();
+					}
+					
+					var templatePresent = false;
+					for (var i=0;i<status.templates.length;i++) {
+						if (status.templates[i] == response.name) {
+							templatePresent = true;
+							break;
+						}
+					}
+					if (! templatePresent) {
+						status.templates.push(response.name);
+					}
+			    },
+		     	onerror : function(e) {
+		         	var dialog = Ti.UI.createAlertDialog({
+     					title: "synchronysation error",
+     					message: "a system error ocurred when synchronizing templates",
+     					buttonNames: ["OK"]
+     				});
+     				dialog.show();
+		     	},
+		     	timeout : 5000  // in milliseconds
+			 });
+			 
+			 // Prepare the connection.
+	 		client.open("GET", templateURL);
+	 		
+	 		// Send the request.
+	 		client.send();
+	 	}
+	};
+	
+	// VIEWS
+	
+	// initial screen
 	self.showSplash = function () {
 		// show the splash screen
 		var splashScreen = Ti.UI.createView({
@@ -123,12 +191,23 @@ function Workflow() {
 		});
 		splashScreen.add(logo);
 		
+		var label = Ti.UI.createLabel({
+			color: formComponents.labelFontColor,
+			text: 'mobile metadata capture',
+			height:'auto',
+			font: formComponents.labelFont,
+			width:'auto',
+			bottom: 100
+		});
+		splashScreen.add(label);
+		
 		self.checkLogin(splashScreen);
 			
 		// show the screen
 		self.switchView(splashScreen);
 	};
 	
+	// token check at startup
 	self.checkLogin = function (view) {
 		// check if there is already a user with a valid token
 		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').exists()) {
@@ -184,6 +263,7 @@ function Workflow() {
 		}
 	};
 	
+	// login input mask with server query
 	self.loginForm = function (view) {
 		var loginField = Ti.UI.createTextField({
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
@@ -285,81 +365,21 @@ function Workflow() {
 		view.add(sendBtn);
 	};
 	
-	// SERVER QUERIES
-	
-	// synch templates
-	self.synchTemplates = function(){
-		for (var i=0;i<templateURLs.length;i++) {
-			var templateURL = templateURLs[i];
-			var client = Ti.Network.createHTTPClient({
-		     	onload : function(e) {
-		     		var response;
-		     		try {
-		     			response = JSON.parse(this.responseText).data.attributes;
-		     		} catch (error) {
-		     			var dialog = Ti.UI.createAlertDialog({
-	     					title: "synchronysation error",
-	     					message: "the template server could not be reached",
-	     					buttonNames: ["OK"]
-	     				});
-	     				dialog.show();
-	     				return;
-		     		}
-	     			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+response.name).write(JSON.stringify(response));
-					var tdir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/',response.name);
-					if (! tdir.exists()) {
-			 		   tdir.createDirectory();
-					}
-					
-					var templatePresent = false;
-					for (var i=0;i<status.templates.length;i++) {
-						if (status.templates[i] == response.name) {
-							templatePresent = true;
-							break;
-						}
-					}
-					if (! templatePresent) {
-						status.templates.push(response.name);
-					}
-			    },
-		     	onerror : function(e) {
-		         	var dialog = Ti.UI.createAlertDialog({
-     					title: "synchronysation error",
-     					message: "a system error ocurred when synchronizing templates",
-     					buttonNames: ["OK"]
-     				});
-     				dialog.show();
-		     	},
-		     	timeout : 5000  // in milliseconds
-			 });
-			 
-			 // Prepare the connection.
-	 		client.open("GET", templateURL);
-	 		
-	 		// Send the request.
-	 		client.send();
-	 	}
-	};
-	
-	// VIEWS
-	
-	// initial screen
+	// main menu
 	self.homeScreen = function() {
 		var homeView = Ti.UI.createView({
 			backgroundColor: '#000000',
 			width: '100%',
-			top: "100px",
+			top: formComponents.topMargin,
 			height: '100%',
 			zIndex: 1
 		});
 		
-		var buttons = formComponents.buttonMenu(['spacer','enter new dataset','view / edit data','view / edit templates', 'options'], 20);
-		buttons['enter new dataset'].addEventListener('click',self.showTemplateSelect);
-		homeView.add(buttons['enter new dataset']);
-		buttons['view / edit data'].addEventListener('click',self.showDatasetSelect);
-		homeView.add(buttons['view / edit data']);
-		//buttons['view / edit templates'].addEventListener('click',self.showTemplateEdit);
-		//homeView.add(buttons['view / edit templates']);
+		var buttons = formComponents.buttonMenu(['spacer','new project','edit project','edit template', 'options'], 20);
+		buttons['new project'].addEventListener('click',self.showTemplateSelect);
+		homeView.add(buttons['new project']);
+		buttons['edit project'].addEventListener('click',self.showDatasetSelect);
+		homeView.add(buttons['edit project']);
 		buttons['options'].addEventListener('click',self.manageFiles);
 		homeView.add(buttons['options']);
 				
@@ -372,6 +392,33 @@ function Workflow() {
 			top: '0px'
 		});
 		homeView.add(label);
+		
+		var login = Ti.UI.createLabel({
+			color: formComponents.labelFontColor,
+			text: 'logged in as '+self.user.firstname+" "+self.user.lastname,
+			height:'auto',
+			font: formComponents.labelFont,
+			width:'auto',
+			bottom: 100,
+			left: formComponents.buttonSideMargin
+		});
+		homeView.add(login);
+		
+		var logoutButton = Ti.UI.createButton({
+			width: formComponents.smallButtonWidth,
+			height: formComponents.buttonHeight,
+			title: "logout",
+			bottom: 100,
+			right: formComponents.buttonSideMargin
+		});
+		formComponents.styleButton(logoutButton);
+		logoutButton.backgroundGradient.colors = ['#EE5F5B', '#BD362F'];
+		logoutButton.addEventListener('click', function () {
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').deleteFile();
+			self.user = null;
+			self.showSplash();
+		});
+		homeView.add(logoutButton);
 		
 		self.switchView(homeView);
 	};
@@ -391,7 +438,7 @@ function Workflow() {
 			top: 0,
 			left: 10,
 			color: formComponents.labelFontColor,
-			text: 'select a dataset template', 
+			text: 'select a template', 
 			font: formComponents.labelFont,
 			height:'auto',
 			width:'auto'
@@ -405,7 +452,7 @@ function Workflow() {
 			fs[i].addEventListener('click', function(){
 				status.currentTemplate = status.templates[this.bound];
 				var dialog = formComponents.alertDialog({
-					title: 'Enter dataset name'
+					title: 'enter project name'
 				});
 				dialog.addEventListener('click', function(e){
 					if(e.index==0){
@@ -418,7 +465,7 @@ function Workflow() {
 						var currentFormInstances = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/'+status.currentTemplate).getDirectoryListing();
 						for (var i=0;i<currentFormInstances.length;i++){
 							if(currentFormInstances[i]==e.text){
-								alert('a form with that name already exists');
+								alert('a project with that name already exists');
 								dialog.show();
 								return false;
 							}
@@ -475,7 +522,7 @@ function Workflow() {
 			top: 0,
 			left: 10,
 			color: formComponents.labelFontColor,
-			text: 'select a dataset', 
+			text: 'select a project', 
 			font: formComponents.labelFont,
 			height:'auto',
 			width:'auto'
@@ -608,12 +655,12 @@ function Workflow() {
 		// title
 		var titleLabel = Ti.UI.createLabel({
 					color: formComponents.labelFontColor,
-					text: status.templateStructures[status.currentTemplate].groups[status.currentGroupName].label, 
+					text: status.templateStructures[status.currentTemplate].groups[status.currentGroupName].toplevel ? "Project: " + status.currentDataset : status.templateStructures[status.currentTemplate].groups[status.currentGroupName].label, 
 					font: formComponents.labelFont,
 					height:'auto',
 					width:'auto',
 					align: 'left',
-					top: "8px",
+					top: formComponents.titleOffset,
 					left: (formComponents.buttonSideMargin * 2) + formComponents.smallButtonWidth
 				});
 		navView.add(titleLabel);
@@ -629,7 +676,7 @@ function Workflow() {
 						font: formComponents.labelFont,
 						height:'auto',
 						width:'auto',
-						top: "8px",
+						top: formComponents.titleOffset,
 						right: formComponents.buttonSideMargin + 2 + formComponents.miniButtonWidth,
 						zIndex: 10
 					});
@@ -639,7 +686,7 @@ function Workflow() {
 						width: formComponents.miniButtonWidth,
 						height: formComponents.buttonHeight,
 						title: "<",
-						right: formComponents.buttonSideMargin + 4 + formComponents.miniButtonWidth + 55,
+						right: formComponents.buttonSideMargin + 4 + formComponents.miniButtonWidth + formComponents.indexWidth,
 						top: 0,
 						zIndex: 10
 					});
@@ -656,7 +703,7 @@ function Workflow() {
 				}
 				var rightBtn = Ti.UI.createButton({
 					width: formComponents.miniButtonWidth,
-					height: formComponents.Height,
+					height: formComponents.buttonHeight,
 					title: ">",
 					right: formComponents.buttonSideMargin,
 					top: 0,
@@ -841,7 +888,7 @@ function Workflow() {
 					font: formComponents.textFont,
 					top: currTop,
 					right: '10%',
-					width: '52%',
+					width: formComponents.splitWidthLeft,
 					value: fieldSet[fieldDefinition.name],
 					height: formComponents.buttonHeight,
 					bound: fieldDefinition.name
@@ -854,7 +901,7 @@ function Workflow() {
 					title: 'get',
 			 	 	top: currTop,
 					right: formComponents.buttonSideMargin,
-					width: '8%',
+					width: formComponents.splitWidthRight,
 					height: formComponents.buttonHeight,
 					bound: textField
 				});			
@@ -959,7 +1006,6 @@ function Workflow() {
 						zIndex: 3
 					});
 					textField.addEventListener('click', function(e){
-						self.add(selectView);
 						var items = status.templateStructures[status.currentTemplate].controlledVocabularies[this.bound[1]].terms.sort();
 						formComponents.filterSelect({
 							view: selectView,
@@ -1009,20 +1055,22 @@ function Workflow() {
 			zIndex: 1
 		});
 		
-		var buttons = formComponents.buttonMenu(['spacer','export dataset','export template','synch templates w/ server', 'delete files', 'spacer', 'main menu']);
-		buttons['export dataset'].addEventListener('click',self.showDatasetExport);
-		manageView.add(buttons['export dataset']);
-		buttons['export template'].addEventListener('click',self.showTemplateExport);
-		manageView.add(buttons['export template']);
-		buttons['synch templates w/ server'].addEventListener('click',self.synchTemplates);
-		manageView.add(buttons['synch templates w/ server']);
-		buttons['delete files'].addEventListener('click',self.showFileDelete);
-		manageView.add(buttons['delete files']);
+		var buttons = formComponents.buttonMenu(['spacer', 'export project','synchronize project', 'synchronize templates', 'select server', 'delete local files', 'spacer', 'main menu']);
+		buttons['export project'].addEventListener('click',self.showDatasetExport);
+		manageView.add(buttons['export project']);
+		buttons['synchronize project'].addEventListener('click',self.synchDatasets);
+		manageView.add(buttons['synchronize project']);
+		buttons['synchronize templates'].addEventListener('click',self.synchTemplates);
+		manageView.add(buttons['synchronize templates']);
+		buttons['select server'].addEventListener('click',self.selectServer);
+		manageView.add(buttons['select server']);
+		buttons['delete local files'].addEventListener('click',self.showFileDelete);
+		manageView.add(buttons['delete local files']);
 		buttons['main menu'].addEventListener('click',self.homeScreen);
 		manageView.add(buttons['main menu']);
 				
 		var label = Ti.UI.createLabel({
-			text: 'Manage Templates and Datasets',
+			text: 'Options',
 			height:'auto',
 			color: formComponents.labelFontColor,
 			font: formComponents.labelFont,
@@ -1201,8 +1249,100 @@ function Workflow() {
 		}
 		
 		self.switchView(manageView);
+	};
+	
+	self.selectServer = function () {
+		var view = Ti.UI.createView({
+			top: formComponents.topMargin,
+			backgroundColor: '#000000',
+			width: '100%',
+			height: '100%',
+			zIndex: 1
+		});
 		
-		self.switchView(manageView);
+		var label = Ti.UI.createLabel({
+			color: formComponents.labelFontColor,
+			text: 'select synchronization server',
+			height:'auto',
+			font: formComponents.labelFont,
+			width:'auto',
+			top: 0
+		});
+		view.add(label);
+		
+		var inputField = Ti.UI.createTextField({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: formComponents.textFontColor,
+			height: formComponents.buttonHeight,
+			width: '350px',
+			left: "30px",
+			top: 100,
+			autocorrect: false,
+			font: formComponents.textFont,
+			hintText: currentServer,
+			autocapitalization: Ti.UI.TEXT_AUTOCAPITALIZATION_NONE
+		});
+		inputField.addEventListener('return', function(event){
+			setButton.fireEvent('click');
+		});
+		
+		var setButton = Ti.UI.createButton({
+			height: formComponents.buttonHeight,
+			title: "set",
+			width: '100px',
+			left: '390px',
+			top: 100
+		});
+		formComponents.styleButton(setButton);
+		setButton.addEventListener('click', function(e){
+			var srv = inputField.value;
+			if (srv.length) {
+				if (! srv.match(/^https?\:\/\//)) {
+					srv = "http://"+srv;
+					inputField.value = srv;
+				}
+				currentServer = srv;
+				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/server').write(currentServer);
+				alert('synchronization server set');
+			} else {
+				alert('you must enter a URL');
+			}
+		});
+		var resetButton = Ti.UI.createButton({
+			height: formComponents.buttonHeight,
+			title: "default",
+			width: '100px',
+			left: '500px',
+			top: 100
+		});
+		formComponents.styleButton(resetButton);
+		resetButton.addEventListener('click', function(e){
+			inputField.value = defaultServer;
+			setButton.fireEvent('click');
+		});
+		
+		var backButton = Ti.UI.createButton({
+			height: formComponents.buttonHeight,
+			title: "back",
+			width: formComponents.buttonWidth,
+			bottom: 200
+		});
+		formComponents.styleButton(backButton);
+		backButton.addEventListener('click', function(e){
+			self.manageFiles();
+		});
+		
+		view.add(inputField);
+		view.add(setButton);
+		view.add(resetButton);
+		
+		view.add(backButton);
+		
+		self.switchView(view);
+	};
+	
+	self.synchDatasets = function () {
+		
 	};
 	
 	// DATA MANIPULATION
