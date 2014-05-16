@@ -794,10 +794,10 @@ function Workflow() {
 			}
 			for (var i=0;i<inputFields.length-1;i++){
 				if (inputFields[i].elements.length == 1 && inputFields[i+1].elements.length == 1) {
-					inputFields[i].elements[0].bound = i + 1;
+					inputFields[i].elements[0].bound2 = i + 1;
 					inputFields[i].elements[0].addEventListener('return', function(event){
 						try {
-							inputFields[this.bound].elements[0].focus();
+							inputFields[this.bound2].elements[0].focus();
 						} catch (error) {
 							
 						}
@@ -938,21 +938,54 @@ function Workflow() {
 				});
 				formComponents.styleButton(cameraButton);
 				
+				var image;
+				var w;
+				var h;
+				if (fieldSet[fieldDefinition.name]){
+					var file = Ti.Filesystem.getFile(fieldSet[fieldDefinition.name]);
+					var image = file.read(image);
+					w = image.width;
+					h = image.height;
+					var hmax = 300;
+				    var ratio = hmax/h;
+				    h = hmax;
+				    w = w * ratio;	
+					if (w > formComponents.maxWidth) {
+						var ratio = formComponents.maxWidth/w;
+						w = formComponents.maxWidth;
+						h = h * ratio;
+					}
+				} else {
+					w = '90%';
+					h = 300;
+					image = fieldSet[fieldDefinition.name];
+				}
 				var imageView = Titanium.UI.createImageView({
-								image: fieldSet[fieldDefinition.name],
-								width: '90%',
-								left: '5%',
-								height: 300,
-								top: currTop + formComponents.buttonHeight + 5,
-								bound: fieldDefinition.name
-							});
-				
+					image: image,
+					width: w,
+					height: h,
+					top: currTop + formComponents.buttonHeight + 5,
+					bound: fieldDefinition.name
+				});
 				cameraButton.addEventListener('click', function(e){
 					Ti.Media.showCamera({
 						mediaTypes: [ Ti.Media.MEDIA_TYPE_PHOTO ],
 						saveToPhotoGallery: true,
 						success: function(e){
+							w = e.media.width;
+							h = e.media.height;
+							var hmax = 300;
+						    var ratio = hmax/h;
+						    h = hmax;
+						    w = w * ratio;	
+							if (w > formComponents.maxWidth) {
+								var ratio = formComponents.maxWidth/w;
+								w = formComponents.maxWidth;
+								h = h * ratio;
+							}
 							imageView.image = e.media;
+							imageView.width = w;
+							imageView.height = h;
 							fieldSet[imageView.bound] = e.media.nativePath;
 						},
 						error: function(e){
