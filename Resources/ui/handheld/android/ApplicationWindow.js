@@ -8,6 +8,9 @@ function ApplicationWindow() {
 		backgroundColor:'#ffffff',
 		navBarHidden:true
 	});
+			
+	// set the valid orientation modes
+	self.orientationModes = [Ti.UI.PORTRAIT, Ti.UI.UPSIDE_PORTRAIT];
 		
 	//construct UI
 	var workflow = new Workflow();

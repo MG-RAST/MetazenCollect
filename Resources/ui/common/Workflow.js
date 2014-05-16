@@ -269,8 +269,8 @@ function Workflow() {
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: formComponents.textFontColor,
 			height: formComponents.buttonHeight,
-			width: '200px',
-			left: '80px',
+			width: '35%',
+			left: '5%',
 			autocorrect: false,
 			font: formComponents.textFont,
 			hintText: "login",
@@ -283,8 +283,8 @@ function Workflow() {
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: formComponents.textFontColor,
 			height: formComponents.buttonHeight,
-			width: '200px',
-			left: '290px',
+			width: '35%',
+			left: '41%',
 			passwordMask: true,
 			autocorrect: false,
 			font: formComponents.textFont,
@@ -297,8 +297,8 @@ function Workflow() {
 		var sendBtn = Ti.UI.createButton({
 			height: formComponents.buttonHeight,
 			title: "login",
-			width: '100px',
-			left: '500px'
+			width: '18%',
+			left: '77%'
 		});
 		formComponents.styleButton(sendBtn);
 		sendBtn.addEventListener('click', function(e){
