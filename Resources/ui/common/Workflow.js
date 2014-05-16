@@ -14,6 +14,11 @@ function Workflow() {
 		saving: false
 	});
 	
+	// make sure we never lose data
+	Titanium.App.addEventListener('close',function(e) { 
+		self.saveDataset();
+	});
+	
 	// initialize the formComponents module
 	var FormComponents = require('ui/common/FormComponents');
 	var formComponents = new FormComponents();
@@ -59,7 +64,7 @@ function Workflow() {
 					currentParentName: null,
 					currentHierarchy: [],
 					currentGroupName: null,
-					currentGroupIndex: null
+					currentGroupIndex: 0
 		};
 		
 		// check for directories
@@ -237,7 +242,7 @@ function Workflow() {
 	     					buttonNames: ["OK"]
 	     				});
 	     				dialog.addEventListener('click', function(e){
-	     					self.homeScreen();
+	     					self.checkSession();
 	     				});
 	     				dialog.show();
 	     				self.user = user;
@@ -331,7 +336,7 @@ function Workflow() {
 	     					buttonNames: ["OK"]
 	     				});
 	     				dialog.addEventListener('click', function(e){
-	     					self.homeScreen();
+	     					self.checkSession();
 	     				});
 	     				dialog.show();
 	     				self.user = response;
@@ -363,6 +368,41 @@ function Workflow() {
 		view.add(loginField);
 		view.add(passwordField);
 		view.add(sendBtn);
+	};
+	
+	// check if there was a previous session, if so, restore it
+	self.checkSession = function () {
+		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+"/status").exists()) {
+			
+			// read the status file
+			var currStat = JSON.parse(Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/status').read().text);
+			
+			// set dataset, template and hierarchy
+			status.currentDataset = currStat.dataset;
+			status.currentTemplate = currStat.template;
+			status.currentHierarchy = currStat.hierarchy;
+			
+			// set group name, index and parent
+			var lastHier = currStat.hierarchy[currStat.hierarchy.length - 1];
+			status.currentGroupName = lastHier.name;
+			status.currentGroupIndex = lastHier.index;
+			status.currentParentName = null;
+			status.currentTemplateRoot = currStat.hierarchy[0].name;
+			if (currStat.hierarchy.length > 1) {
+				status.currentParentName = currStat.hierarchy[currStat.hierarchy.length - 2].name;
+			}
+			
+			// load template
+			status.templateStructures[status.currentTemplate] = JSON.parse(Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+status.currentTemplate).read().text);
+			
+			// load dataset
+			self.loadCurrentDataset();
+			
+			// display the dataset edit view
+			self.showDatasetEdit();
+		} else { 
+			self.homeScreen();
+		}
 	};
 	
 	// main menu
@@ -587,7 +627,7 @@ function Workflow() {
 			}
 			
 			if (status.currentHierarchy.length == 0) {
-				status.currentHierarchy.push({ "name": status.currentGroupName, "index": null });
+				status.currentHierarchy.push({ "name": status.currentGroupName, "index": 0 });
 			}
 			entryData = self.initializeDataset();
 		} else {
@@ -639,6 +679,7 @@ function Workflow() {
 					status.currentHierarchy.pop();
 					status.currentParentName = status.currentHierarchy.length > 1 ? status.currentHierarchy[status.currentHierarchy.length - 2].name : null;
 					status.currentGroupIndex = status.currentHierarchy[status.currentHierarchy.length - 1].index;
+					self.saveStatus();
 					self.showDatasetEdit();
 				}
 			);
@@ -695,6 +736,7 @@ function Workflow() {
 							self.saveDataset();
 							status.currentGroupIndex--;
 							status.currentHierarchy[status.currentHierarchy.length - 1].index = status.currentGroupIndex;
+							self.saveStatus();
 							self.showDatasetEdit();
 						}
 					);
@@ -714,6 +756,7 @@ function Workflow() {
 						self.saveDataset();
 						status.currentGroupIndex++;
 						status.currentHierarchy[status.currentHierarchy.length - 1].index = status.currentGroupIndex;
+						self.saveStatus();
 						self.showDatasetEdit();
 					}
 				);
@@ -756,6 +799,7 @@ function Workflow() {
 						status.currentGroupName = this.bound[1];
 						status.currentHierarchy.push({ 	"name": status.currentGroupName,
 														"index": status.currentGroupIndex });
+						self.saveStatus();
 						self.showDatasetEdit();
 					}
 				);
@@ -1383,9 +1427,19 @@ function Workflow() {
 	
 	// save the current dataset
 	self.saveDataset = function () {
-		var dsfn = Ti.Filesystem.applicationDataDirectory+'data/'+status.currentTemplate+'/'+status.currentDataset;
+		var dsfn = Ti.Filesystem.applicationDataDirectory+'/data/'+status.currentTemplate+'/'+status.currentDataset;
 		dsfn = dsfn.replace(/\s/g, "%20");
 		Ti.Filesystem.getFile(dsfn).write(JSON.stringify(status.datasets[status.currentTemplate][status.currentDataset]));
+	};
+	
+	self.saveStatus = function () {
+		// save the current status
+		var currStat = {
+			hierarchy: status.currentHierarchy,
+			template: status.currentTemplate,
+			dataset: status.currentDataset
+		};
+		Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+"/status").write(JSON.stringify(currStat));
 	};
 	
 	// get a pointer to the current dataset
