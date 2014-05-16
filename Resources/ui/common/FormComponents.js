@@ -55,6 +55,7 @@ function FormComponents(){
 		
 		if (isHighRes) {
 			topMargin        = "180px";
+			titleOffset      = "18px";
 		}
 	}
 	

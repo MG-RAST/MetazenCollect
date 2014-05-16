@@ -377,6 +377,14 @@ function Workflow() {
 			// read the status file
 			var currStat = JSON.parse(Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/status').read().text);
 			
+			// check if the dataset still exists
+			var currFn = Ti.Filesystem.applicationDataDirectory+'/data/'+currStat.template+"/"+currStat.dataset;
+			currFn = currFn.replace(/\s/g, "%20");
+			if (! (Ti.Filesystem.getFile(currFn).exists() && Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+currStat.template).exists())) {
+				self.homeScreen();
+				return;
+			}
+			
 			// set dataset, template and hierarchy
 			status.currentDataset = currStat.dataset;
 			status.currentTemplate = currStat.template;
@@ -612,7 +620,13 @@ function Workflow() {
 			
 			// check if the template structure is loaded
 			if (! status.templateStructures.hasOwnProperty(status.currentTemplate)){
-				status.templateStructures[status.currentTemplate] = JSON.parse(Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+status.currentTemplate).read().text);
+				try {
+					status.templateStructures[status.currentTemplate] = JSON.parse(Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+status.currentTemplate).read().text);
+				} catch (error) {
+					alert("The selected template could not be found on the device");
+					self.homeScreen();
+					return;
+				}
 			}
 			
 			// find the toplevelGroup
@@ -1352,8 +1366,8 @@ function Workflow() {
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: formComponents.textFontColor,
 			height: formComponents.buttonHeight,
-			width: '350px',
-			left: "30px",
+			width: '48%',
+			left: "5%",
 			top: 100,
 			autocorrect: false,
 			font: formComponents.textFont,
@@ -1367,8 +1381,8 @@ function Workflow() {
 		var setButton = Ti.UI.createButton({
 			height: formComponents.buttonHeight,
 			title: "set",
-			width: '100px',
-			left: '390px',
+			width: '20%',
+			left: '54%',
 			top: 100
 		});
 		formComponents.styleButton(setButton);
@@ -1389,8 +1403,8 @@ function Workflow() {
 		var resetButton = Ti.UI.createButton({
 			height: formComponents.buttonHeight,
 			title: "default",
-			width: '100px',
-			left: '500px',
+			width: '20%',
+			left: '75%',
 			top: 100
 		});
 		formComponents.styleButton(resetButton);
