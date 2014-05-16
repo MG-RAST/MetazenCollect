@@ -1051,6 +1051,7 @@ function Workflow() {
 								externalBound.title = textValue;
 							}
 						});
+						self.add(selectView);
 					});
 								
 					return { elements: [ textField ] };
