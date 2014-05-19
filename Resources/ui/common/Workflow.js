@@ -39,12 +39,14 @@ function Workflow() {
 	// initialize empty status
 	var status = {};
 	
+	self.silentTemplateSynch = false;
+	
 	// switch to a new view, cleaning up the old
 	self.switchView = function (newView) {
+		self.add(newView);
 		if (status.currentView !== null) {
 			self.remove(status.currentView);
 		}
-		self.add(newView);
 		
 		status.currentView = newView;
 		
@@ -79,6 +81,12 @@ function Workflow() {
 			status.templates.push(templateFiles[i]);
 		}
 		
+		// check if image directory for samples exists
+		var imgDir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, 'images');
+		if (! imgDir.exists()) {
+		    imgDir.createDirectory();
+		}
+		
 		// the data dir has a subdirectory for each template, filled with data files for
 		// the according template
 		var dataDir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory, 'data');
@@ -111,8 +119,9 @@ function Workflow() {
 		// add the logo, visible in all views except splash
 		var logo = Ti.UI.createImageView({
 			image:'metazen_logo_wide.png',
+			top: '30px',
 			width: '99%',
-			top: '30px'
+			height: 'auto'
 		});
 		self.add(logo);
 		
@@ -123,6 +132,8 @@ function Workflow() {
 	
 	// synch templates
 	self.synchTemplates = function(){
+		self.numTemplatesSynched = 0;
+		self.totalNumTemplates = templateURLs.length;
 		for (var i=0;i<templateURLs.length;i++) {
 			var templateURL = templateURLs[i];
 			var client = Ti.Network.createHTTPClient({
@@ -130,6 +141,13 @@ function Workflow() {
 		     		var response;
 		     		try {
 		     			response = JSON.parse(this.responseText).data.attributes;
+		     			self.numTemplatesSynched++;
+		     			if (self.numTemplatesSynched == self.totalNumTemplates) {	
+			     			if(! self.silentTemplateSynch) {
+			     				alert('templates synchronized');
+			     			}
+			     			self.silentTemplateSynch = false;
+			     		}
 		     		} catch (error) {
 		     			var dialog = Ti.UI.createAlertDialog({
 	     					title: "synchronysation error",
@@ -235,6 +253,7 @@ function Workflow() {
 	     				dialog.show();
 	     				self.loginForm(view);
 	     			} else {
+	     				self.silentTemplateSynch = true;
 	     				self.synchTemplates();
 	     				var dialog = Ti.UI.createAlertDialog({
 	     					title: "",
@@ -329,6 +348,7 @@ function Workflow() {
 	     				});
 	     				dialog.show();
 	     			} else {
+	     				self.silentTemplateSynch = true;
 	     				self.synchTemplates();
 	     				var dialog = Ti.UI.createAlertDialog({
 	     					title: "login successful",
@@ -419,7 +439,7 @@ function Workflow() {
 			backgroundColor: '#000000',
 			width: '100%',
 			top: formComponents.topMargin,
-			height: '100%',
+			height: 'auto',
 			zIndex: 1
 		});
 		
@@ -447,7 +467,7 @@ function Workflow() {
 			height:'auto',
 			font: formComponents.labelFont,
 			width:'auto',
-			bottom: 100,
+			bottom: 0,
 			left: formComponents.buttonSideMargin
 		});
 		homeView.add(login);
@@ -456,12 +476,13 @@ function Workflow() {
 			width: formComponents.smallButtonWidth,
 			height: formComponents.buttonHeight,
 			title: "logout",
-			bottom: 100,
+			bottom: 0,
 			right: formComponents.buttonSideMargin
 		});
 		formComponents.styleButton(logoutButton);
 		logoutButton.backgroundGradient.colors = ['#EE5F5B', '#BD362F'];
 		logoutButton.addEventListener('click', function () {
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/status').deleteFile();
 			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').deleteFile();
 			self.user = null;
 			self.showSplash();
@@ -477,7 +498,7 @@ function Workflow() {
 			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
-			height: '100%',
+			height: 'auto',
 			zIndex: 1
 		});
 		
@@ -561,7 +582,7 @@ function Workflow() {
 			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
-			height: '100%',
+			height: 'auto',
 			zIndex: 1
 		});
 		
@@ -655,7 +676,7 @@ function Workflow() {
 		var editDatasetView = Ti.UI.createView({
 			top: formComponents.topMargin,
 			width: '100%',
-			height: '100%',
+			height: 'auto',
 			zIndex: 2,
 			backgroundColor: '#000000'
 		});
@@ -724,6 +745,29 @@ function Workflow() {
 		if (status.currentHierarchy.length > 1) {
 			var parent = self.getCurrentDataset(true);
 			if (typeof parent[status.currentGroupName].length == 'number') {
+				if (self.swipeListener) {
+					self.removeEventListener('swipe',self.swipeListener);
+				}
+				self.swipeListener = function(e){
+					if (e.direction == 'right') {
+						if (status.currentGroupIndex > 0) {
+							self.saveDataset();
+							status.currentGroupIndex--;
+							status.currentHierarchy[status.currentHierarchy.length - 1].index = status.currentGroupIndex;
+							self.saveStatus();
+							self.showDatasetEdit();
+						}
+						return false;
+					} else {
+						self.saveDataset();
+						status.currentGroupIndex++;
+						status.currentHierarchy[status.currentHierarchy.length - 1].index = status.currentGroupIndex;
+						self.saveStatus();
+						self.showDatasetEdit();
+						return false;
+					}
+				};
+				self.addEventListener('swipe', self.swipeListener);
 				var numTotal = parent[status.currentGroupName].length;
 				var positionLabel = Ti.UI.createLabel({
 						color: formComponents.labelFontColor,
@@ -732,16 +776,16 @@ function Workflow() {
 						height:'auto',
 						width:'auto',
 						top: formComponents.titleOffset,
-						right: formComponents.buttonSideMargin + 2 + formComponents.miniButtonWidth,
+						right: formComponents.isTablet ? formComponents.buttonSideMargin + 2 + formComponents.miniButtonWidth : formComponents.buttonSideMargin,
 						zIndex: 10
 					});
 				navView.add(positionLabel);
-				if (status.currentGroupIndex > 0) {
+				if (status.currentGroupIndex > 0 && formComponents.isTablet) {
 					var leftBtn = Ti.UI.createButton({
 						width: formComponents.miniButtonWidth,
 						height: formComponents.buttonHeight,
 						title: "<",
-						right: formComponents.buttonSideMargin + 4 + formComponents.miniButtonWidth + formComponents.indexWidth,
+						right: formComponents.buttonSideMargin + 4 + formComponents.miniButtonWidth + 48 + ((positionLabel.text.length - 6) * 14),
 						top: 0,
 						zIndex: 10
 					});
@@ -757,25 +801,27 @@ function Workflow() {
 					formComponents.styleButton(leftBtn);
 					navView.add(leftBtn);
 				}
-				var rightBtn = Ti.UI.createButton({
-					width: formComponents.miniButtonWidth,
-					height: formComponents.buttonHeight,
-					title: ">",
-					right: formComponents.buttonSideMargin,
-					top: 0,
-					zIndex: 10
-				});
-				rightBtn.addEventListener('click',
-					function(e) {
-						self.saveDataset();
-						status.currentGroupIndex++;
-						status.currentHierarchy[status.currentHierarchy.length - 1].index = status.currentGroupIndex;
-						self.saveStatus();
-						self.showDatasetEdit();
-					}
-				);
-				formComponents.styleButton(rightBtn);
-				navView.add(rightBtn);
+				if (formComponents.isTablet) {
+					var rightBtn = Ti.UI.createButton({
+						width: formComponents.miniButtonWidth,
+						height: formComponents.buttonHeight,
+						title: ">",
+						right: formComponents.buttonSideMargin,
+						top: 0,
+						zIndex: 10
+					});
+					rightBtn.addEventListener('click',
+						function(e) {
+							self.saveDataset();
+							status.currentGroupIndex++;
+							status.currentHierarchy[status.currentHierarchy.length - 1].index = status.currentGroupIndex;
+							self.saveStatus();
+							self.showDatasetEdit();
+						}
+					);
+					formComponents.styleButton(rightBtn);
+					navView.add(rightBtn);
+				}
 			}
 		}
 		
@@ -992,20 +1038,23 @@ function Workflow() {
 					width: formComponents.buttonWidthPercent,
 					height: formComponents.buttonHeight,
 					top: currTop,
-					right: formComponents.buttonSideMargin,
+					right: formComponents.buttonSideMargin
 				});
 				formComponents.styleButton(cameraButton);
 				
-				var image;
-				var w;
-				var h;
-				if (fieldSet[fieldDefinition.name]){
-					var file = Ti.Filesystem.getFile(fieldSet[fieldDefinition.name]);
-					var image = file.read(image);
-					w = image.width;
-					h = image.height;
-					var hmax = 300;
-				    var ratio = hmax/h;
+				var imageView = Titanium.UI.createImageView({
+					image: fieldSet[fieldDefinition.name] || "nopic.jpg",
+					width: 'auto',
+					height: 'auto',
+					top: currTop + formComponents.buttonHeight + 5,
+					bound: fieldDefinition.name
+				});
+				var w, h;
+				var hmax = 250;
+				if (fieldSet[fieldDefinition.name]) {
+					w = imageView.rect.width;
+					h = imageView.rect.height;
+					var ratio = hmax/h;
 				    h = hmax;
 				    w = w * ratio;	
 					if (w > formComponents.maxWidth) {
@@ -1014,25 +1063,23 @@ function Workflow() {
 						h = h * ratio;
 					}
 				} else {
-					w = '90%';
-					h = 300;
-					image = fieldSet[fieldDefinition.name];
+					h = hmax;
+					w = "auto";
 				}
-				var imageView = Titanium.UI.createImageView({
-					image: image,
-					width: w,
-					height: h,
-					top: currTop + formComponents.buttonHeight + 5,
-					bound: fieldDefinition.name
-				});
+				imageView.width = w;
+				imageView.height = h;
+					
 				cameraButton.addEventListener('click', function(e){
 					Ti.Media.showCamera({
 						mediaTypes: [ Ti.Media.MEDIA_TYPE_PHOTO ],
-						saveToPhotoGallery: true,
+						saveToPhotoGallery: false,
 						success: function(e){
-							w = e.media.width;
-							h = e.media.height;
-							var hmax = 300;
+							imageView.image = e.media;
+							imageView.width = "auto";
+							imageView.height = "auto";
+							w = imageView.width;
+							h = imageView.height;
+							var hmax = 250;
 						    var ratio = hmax/h;
 						    h = hmax;
 						    w = w * ratio;	
@@ -1041,10 +1088,12 @@ function Workflow() {
 								w = formComponents.maxWidth;
 								h = h * ratio;
 							}
-							imageView.image = e.media;
 							imageView.width = w;
 							imageView.height = h;
-							fieldSet[imageView.bound] = e.media.nativePath;
+							var imgnum = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory, "/images").getDirectoryListing().length;
+							var f = Titanium.Filesystem.getFile(Titanium.Filesystem.applicationDataDirectory, "/images/"+imgnum+".jpg");
+							f.write(e.media);
+							fieldSet[imageView.bound] = f.nativePath;
 						},
 						error: function(e){
 							alert('an error occurred while taking the picture');
@@ -1055,7 +1104,7 @@ function Workflow() {
 					});
 				});
 				
-				return { elements: [ cameraButton, imageView ], currTop: (310 + formComponents.buttonHeight) };					
+				return { elements: [ cameraButton, imageView ], currTop: (260 + formComponents.buttonHeight) };					
 			break;
 			case 'boolean':
 				var valueSwitch = Ti.UI.createSwitch({ value: fieldSet[fieldDefinition.name],
@@ -1143,7 +1192,7 @@ function Workflow() {
 			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
-			height: '100%',
+			height: 'auto',
 			zIndex: 1
 		});
 		
@@ -1180,7 +1229,7 @@ function Workflow() {
 			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
-			height: '100%',
+			height: 'auto',
 			zIndex: 1
 		});
 		
@@ -1237,7 +1286,7 @@ function Workflow() {
 						Ti.Filesystem.getFile(fileHandles[this.bound]).deleteFile();
 						
 						// reload status
-						self.checkStatus();
+						self.checkStatus(true);
 						
 						// show the the file delete menu
 						self.showFileDelete();
@@ -1256,7 +1305,7 @@ function Workflow() {
 			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
-			height: '100%',
+			height: 'auto',
 			zIndex: 1
 		});
 		
@@ -1293,7 +1342,7 @@ function Workflow() {
 			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
-			height: '100%',
+			height: 'auto',
 			zIndex: 1
 		});
 		
@@ -1348,7 +1397,7 @@ function Workflow() {
 			top: formComponents.topMargin,
 			backgroundColor: '#000000',
 			width: '100%',
-			height: '100%',
+			height: 'auto',
 			zIndex: 1
 		});
 		

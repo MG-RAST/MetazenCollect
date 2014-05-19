@@ -35,8 +35,7 @@ function FormComponents(){
 	
 	var backTitle        = 'back';
 	var topMargin        = "100px";
-	var titleOffset      = "8px";
-	var indexWidth       = 55;
+	var titleOffset      = 4;
 	var splitWidthLeft   = '52%';
 	var splitWidthRight  = '8%';
 	
@@ -45,17 +44,15 @@ function FormComponents(){
 		globalLineHeight = 65;
 		smallButtonWidth = 120;
 		miniButtonWidth  = 50;
-		titleOffset      = "14px";
+		titleOffset      = 14;
 		buttonFont       = { fontSize: 25 };
 		labelFont        = { fontSize: 25 };
 		textFont         = { fontSize: 25 };
-		indexWidth       = 109;
 		splitWidthLeft   = '51%';
 		splitWidthRight  = '9%';
 		
 		if (isHighRes) {
 			topMargin        = "180px";
-			titleOffset      = "18px";
 		}
 	}
 	
@@ -88,7 +85,6 @@ function FormComponents(){
 		backTitle: backTitle,
 		topMargin: topMargin,
 		titleOffset: titleOffset,
-		indexWidth: indexWidth,
 		splitWidthLeft: splitWidthLeft,
 		splitWidthRight: splitWidthRight,
 		
