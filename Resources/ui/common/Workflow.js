@@ -1,12 +1,14 @@
 function Workflow() {
 	// global config variables
 	var loginURL = "http://api.metagenomics.anl.gov/?verbosity=verbose";
-	var defaultServer = "http://140.221.84.144:8000";
-	var currentServer = defaultServer;
-	var templateURLs = [
-						// "http://140.221.84.144:8000/node/2736be4f-91b9-41d9-ae3d-d2e958f582fd", // MG-RAST
-						"http://140.221.84.144:8000/node/9886a6e1-0cde-4643-9153-3844ac63f758" // Demo
-						];
+	var templateBaseURL = "http://shock.metagenomics.anl.gov/node";
+	var templateURL = "?query&application=metazen&type=template";
+	var dataURL = "http://shock.metagenomics.anl.gov:8000/node";
+	
+	var customLoginURL = "";
+	var customTemplateBaseURL = "";
+	var customTemplateURL = "";
+	var customdataURL = "";
 	
 	// initialize self
 	var self = Ti.UI.createView({
@@ -105,11 +107,30 @@ function Workflow() {
 			}
 		}
 		
-		// check the server url
-		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/server').exists()) {
-			currentServer = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/server').read().text;
+		// check the server urls
+		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/login').exists()) {
+			customLoginURL = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/login').read().text;
 		} else {
-			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/server').write(currentServer);
+			customLoginURL = loginURL;
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/login').write(loginURL);
+		}
+		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateBase').exists()) {
+			customTemplateBaseURL = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateBase').read().text;
+		} else {
+			customTemplateBaseURL = templateBaseURL;
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateBase').write(templateBaseURL);
+		}
+		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/template').exists()) {
+			customTemplateURL = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/template').read().text;
+		} else {
+			customTemplateURL = templateURL;
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/template').write(templateURL);
+		}
+		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data').exists()) {
+			customDataURL = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data').read().text;
+		} else {
+			customDataURL = dataURL;
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data').write(dataURL);
 		}
 		
 		if (norelay){
@@ -132,65 +153,98 @@ function Workflow() {
 	
 	// synch templates
 	self.synchTemplates = function(){
-		self.numTemplatesSynched = 0;
-		self.totalNumTemplates = templateURLs.length;
-		for (var i=0;i<templateURLs.length;i++) {
-			var templateURL = templateURLs[i];
-			var client = Ti.Network.createHTTPClient({
-		     	onload : function(e) {
-		     		var response;
-		     		try {
-		     			response = JSON.parse(this.responseText).data.attributes;
-		     			self.numTemplatesSynched++;
-		     			if (self.numTemplatesSynched == self.totalNumTemplates) {	
-			     			if(! self.silentTemplateSynch) {
-			     				alert('templates synchronized');
-			     			}
-			     			self.silentTemplateSynch = false;
-			     		}
-		     		} catch (error) {
-		     			var dialog = Ti.UI.createAlertDialog({
-	     					title: "synchronysation error",
-	     					message: "the template server could not be reached",
-	     					buttonNames: ["OK"]
-	     				});
-	     				dialog.show();
-	     				return;
-		     		}
-	     			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+response.name).write(JSON.stringify(response));
-					var tdir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/',response.name);
-					if (! tdir.exists()) {
-			 		   tdir.createDirectory();
-					}
-					
-					var templatePresent = false;
-					for (var i=0;i<status.templates.length;i++) {
-						if (status.templates[i] == response.name) {
-							templatePresent = true;
-							break;
-						}
-					}
-					if (! templatePresent) {
-						status.templates.push(response.name);
-					}
-			    },
-		     	onerror : function(e) {
-		         	var dialog = Ti.UI.createAlertDialog({
+		var client = Ti.Network.createHTTPClient({
+	     	onload : function(e) {
+	     		var response;
+	     		try {
+	     			response = JSON.parse(this.responseText).data;
+	     			self.numTemplatesSynched = 0;
+					self.totalNumTemplates = response.length;
+	     			for (var i=0; i<response.length; i++) {
+						var tURL = customTemplateBaseURL + "/" + response[i].id+"?download";
+						console.log(tURL);
+						var cl = Ti.Network.createHTTPClient({
+					     	onload : function(e) {
+					     		var resp;
+					     		try {
+					     			resp = JSON.parse(this.responseText);
+					     			self.numTemplatesSynched++;
+					     			if (self.numTemplatesSynched == self.totalNumTemplates) {	
+						     			if(! self.silentTemplateSynch) {
+						     				alert('templates synchronized');
+						     			}
+						     			self.silentTemplateSynch = false;
+						     		}
+					     		} catch (error) {
+					     			var dialog = Ti.UI.createAlertDialog({
+				     					title: "synchronysation error",
+				     					message: "the template server sent and invalid template",
+				     					buttonNames: ["OK"]
+				     				});
+				     				dialog.show();
+				     				return;
+					     		}
+				     			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templates/'+resp.name).write(JSON.stringify(resp));
+								var tdir = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/',resp.name);
+								if (! tdir.exists()) {
+						 		   tdir.createDirectory();
+								}
+								
+								var templatePresent = false;
+								for (var i=0;i<status.templates.length;i++) {
+									if (status.templates[i] == resp.name) {
+										templatePresent = true;
+										break;
+									}
+								}
+								if (! templatePresent) {
+									status.templates.push(resp.name);
+								}
+						    },
+					     	onerror : function(e) {
+					     		console.log(e);
+					         	var dialog = Ti.UI.createAlertDialog({
+			     					title: "synchronysation error",
+			     					message: "a system error ocurred when synchronizing one of the templates",
+			     					buttonNames: ["OK"]
+			     				});
+			     				dialog.show();
+					     	},
+					     	timeout : 5000  // in milliseconds
+						 });
+						 
+						 // Prepare the connection.
+				 		cl.open("GET", tURL);
+				 		
+				 		// Send the request.
+				 		cl.send();
+	     			}
+	     		} catch (error) {
+	     			var dialog = Ti.UI.createAlertDialog({
      					title: "synchronysation error",
-     					message: "a system error ocurred when synchronizing templates",
+     					message: "the template server could not be reached",
      					buttonNames: ["OK"]
      				});
      				dialog.show();
-		     	},
-		     	timeout : 5000  // in milliseconds
-			 });
-			 
-			 // Prepare the connection.
-	 		client.open("GET", templateURL);
-	 		
-	 		// Send the request.
-	 		client.send();
-	 	}
+     				return;
+	     		}
+		    },
+	     	onerror : function(e) {
+	         	var dialog = Ti.UI.createAlertDialog({
+ 					title: "synchronysation error",
+ 					message: "a system error ocurred when synchronizing templates",
+ 					buttonNames: ["OK"]
+ 				});
+ 				dialog.show();
+	     	},
+	     	timeout : 5000  // in milliseconds
+		 });
+		 
+		 // Prepare the connection.
+ 		client.open("GET", customTemplateBaseURL + "/" + customTemplateURL);
+ 		
+ 		// Send the request.
+ 		client.send();	
 	};
 	
 	// VIEWS
@@ -274,7 +328,7 @@ function Workflow() {
 			});
 			 
 		 	// Prepare the connection.
-		 	client.open("GET", loginURL);
+		 	client.open("GET", customLoginURL);
 	 		
 	 		// set auth
 			var header = user.token;
@@ -375,7 +429,7 @@ function Workflow() {
 			});
 			 
 		 	// Prepare the connection.
-		 	client.open("GET", loginURL);
+		 	client.open("GET", customLoginURL);
 	 		
 	 		// set auth
 			var header = "mggo4711"+Ti.Utils.base64encode(loginField.value+":"+passwordField.value);
@@ -1196,15 +1250,15 @@ function Workflow() {
 			zIndex: 1
 		});
 		
-		var buttons = formComponents.buttonMenu(['spacer', 'export project','synchronize project', 'synchronize templates', 'select server', 'delete local files', 'spacer', 'main menu']);
+		var buttons = formComponents.buttonMenu(['spacer', 'export project','synchronize project', 'synchronize templates', 'select servers', 'delete local files', 'spacer', 'main menu']);
 		buttons['export project'].addEventListener('click',self.showDatasetExport);
 		manageView.add(buttons['export project']);
 		buttons['synchronize project'].addEventListener('click',self.synchDatasets);
 		manageView.add(buttons['synchronize project']);
 		buttons['synchronize templates'].addEventListener('click',self.synchTemplates);
 		manageView.add(buttons['synchronize templates']);
-		buttons['select server'].addEventListener('click',self.selectServer);
-		manageView.add(buttons['select server']);
+		buttons['select servers'].addEventListener('click',self.selectServers);
+		manageView.add(buttons['select servers']);
 		buttons['delete local files'].addEventListener('click',self.showFileDelete);
 		manageView.add(buttons['delete local files']);
 		buttons['main menu'].addEventListener('click',self.homeScreen);
@@ -1392,7 +1446,7 @@ function Workflow() {
 		self.switchView(manageView);
 	};
 	
-	self.selectServer = function () {
+	self.selectServers = function () {
 		var view = Ti.UI.createView({
 			top: formComponents.topMargin,
 			backgroundColor: '#000000',
@@ -1401,17 +1455,16 @@ function Workflow() {
 			zIndex: 1
 		});
 		
-		var label = Ti.UI.createLabel({
+		var label1 = Ti.UI.createLabel({
 			color: formComponents.labelFontColor,
-			text: 'select synchronization server',
+			text: 'login URL',
 			height:'auto',
 			font: formComponents.labelFont,
 			width:'auto',
-			top: 0
+			top: 65
 		});
-		view.add(label);
-		
-		var inputField = Ti.UI.createTextField({
+			
+		var inputField1 = Ti.UI.createTextField({
 			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
 			color: formComponents.textFontColor,
 			height: formComponents.buttonHeight,
@@ -1420,47 +1473,239 @@ function Workflow() {
 			top: 100,
 			autocorrect: false,
 			font: formComponents.textFont,
-			hintText: currentServer,
+			hintText: customLoginURL,
 			autocapitalization: Ti.UI.TEXT_AUTOCAPITALIZATION_NONE
 		});
-		inputField.addEventListener('return', function(event){
-			setButton.fireEvent('click');
+		inputField1.addEventListener('return', function(event){
+			setButton1.fireEvent('click');
 		});
 		
-		var setButton = Ti.UI.createButton({
+		var setButton1 = Ti.UI.createButton({
 			height: formComponents.buttonHeight,
 			title: "set",
 			width: '20%',
 			left: '54%',
 			top: 100
 		});
-		formComponents.styleButton(setButton);
-		setButton.addEventListener('click', function(e){
-			var srv = inputField.value;
+		formComponents.styleButton(setButton1);
+		setButton1.addEventListener('click', function(e){
+			var srv = inputField1.value;
 			if (srv.length) {
 				if (! srv.match(/^https?\:\/\//)) {
 					srv = "http://"+srv;
-					inputField.value = srv;
+					inputField1.value = srv;
 				}
-				currentServer = srv;
-				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/server').write(currentServer);
+				customLoginURL = srv;
+				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/login').write(customLoginURL);
 				alert('synchronization server set');
 			} else {
 				alert('you must enter a URL');
 			}
 		});
-		var resetButton = Ti.UI.createButton({
+		var resetButton1 = Ti.UI.createButton({
 			height: formComponents.buttonHeight,
 			title: "default",
 			width: '20%',
 			left: '75%',
 			top: 100
 		});
-		formComponents.styleButton(resetButton);
-		resetButton.addEventListener('click', function(e){
-			inputField.value = defaultServer;
-			setButton.fireEvent('click');
+		formComponents.styleButton(resetButton1);
+		resetButton1.addEventListener('click', function(e){
+			inputField1.value = loginURL;
+			setButton1.fireEvent('click');
 		});
+		view.add(label1);
+		view.add(inputField1);
+		view.add(setButton1);
+		view.add(resetButton1);
+		
+		var label2 = Ti.UI.createLabel({
+			color: formComponents.labelFontColor,
+			text: 'template base URL',
+			height:'auto',
+			font: formComponents.labelFont,
+			width:'auto',
+			top: 165
+		});
+			
+		var inputField2 = Ti.UI.createTextField({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: formComponents.textFontColor,
+			height: formComponents.buttonHeight,
+			width: '48%',
+			left: "5%",
+			top: 200,
+			autocorrect: false,
+			font: formComponents.textFont,
+			hintText: templateBaseURL,
+			autocapitalization: Ti.UI.TEXT_AUTOCAPITALIZATION_NONE
+		});
+		inputField2.addEventListener('return', function(event){
+			setButton2.fireEvent('click');
+		});
+		
+		var setButton2 = Ti.UI.createButton({
+			height: formComponents.buttonHeight,
+			title: "set",
+			width: '20%',
+			left: '54%',
+			top: 200
+		});
+		formComponents.styleButton(setButton2);
+		setButton2.addEventListener('click', function(e){
+			var srv = inputField2.value;
+			if (srv.length) {
+				if (! srv.match(/^https?\:\/\//)) {
+					srv = "http://"+srv;
+					inputField2.value = srv;
+				}
+				customTemplateBaseURL = srv;
+				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateBase').write(customTemplateBaseURL);
+				alert('synchronization server set');
+			} else {
+				alert('you must enter a URL');
+			}
+		});
+		var resetButton2 = Ti.UI.createButton({
+			height: formComponents.buttonHeight,
+			title: "default",
+			width: '20%',
+			left: '75%',
+			top: 200
+		});
+		formComponents.styleButton(resetButton2);
+		resetButton2.addEventListener('click', function(e){
+			inputField2.value = templateBaseURL;
+			setButton2.fireEvent('click');
+		});
+		view.add(label2);
+		view.add(inputField2);
+		view.add(setButton2);
+		view.add(resetButton2);
+		
+		var label3 = Ti.UI.createLabel({
+			color: formComponents.labelFontColor,
+			text: 'template URL',
+			height:'auto',
+			font: formComponents.labelFont,
+			width:'auto',
+			top: 265
+		});
+			
+		var inputField3 = Ti.UI.createTextField({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: formComponents.textFontColor,
+			height: formComponents.buttonHeight,
+			width: '48%',
+			left: "5%",
+			top: 300,
+			autocorrect: false,
+			font: formComponents.textFont,
+			hintText: customTemplateURL,
+			autocapitalization: Ti.UI.TEXT_AUTOCAPITALIZATION_NONE
+		});
+		inputField3.addEventListener('return', function(event){
+			setButton3.fireEvent('click');
+		});
+		
+		var setButton3 = Ti.UI.createButton({
+			height: formComponents.buttonHeight,
+			title: "set",
+			width: '20%',
+			left: '54%',
+			top: 300
+		});
+		formComponents.styleButton(setButton3);
+		setButton3.addEventListener('click', function(e){
+			var srv = inputField3.value;
+			if (srv.length) {
+				customTemplateURL = srv;
+				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/template').write(customTemplateURL);
+				alert('synchronization server set');
+			} else {
+				alert('you must enter a value');
+			}
+		});
+		var resetButton3 = Ti.UI.createButton({
+			height: formComponents.buttonHeight,
+			title: "default",
+			width: '20%',
+			left: '75%',
+			top: 300
+		});
+		formComponents.styleButton(resetButton3);
+		resetButton1.addEventListener('click', function(e){
+			inputField3.value = templateURL;
+			setButton3.fireEvent('click');
+		});
+		view.add(label3);
+		view.add(inputField3);
+		view.add(setButton3);
+		view.add(resetButton3);
+		
+		var label4 = Ti.UI.createLabel({
+			color: formComponents.labelFontColor,
+			text: 'data URL',
+			height:'auto',
+			font: formComponents.labelFont,
+			width:'auto',
+			top: 365
+		});
+			
+		var inputField4 = Ti.UI.createTextField({
+			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
+			color: formComponents.textFontColor,
+			height: formComponents.buttonHeight,
+			width: '48%',
+			left: "5%",
+			top: 400,
+			autocorrect: false,
+			font: formComponents.textFont,
+			hintText: customDataURL,
+			autocapitalization: Ti.UI.TEXT_AUTOCAPITALIZATION_NONE
+		});
+		inputField1.addEventListener('return', function(event){
+			setButton4.fireEvent('click');
+		});
+		
+		var setButton4 = Ti.UI.createButton({
+			height: formComponents.buttonHeight,
+			title: "set",
+			width: '20%',
+			left: '54%',
+			top: 400
+		});
+		formComponents.styleButton(setButton4);
+		setButton4.addEventListener('click', function(e){
+			var srv = inputField4.value;
+			if (srv.length) {
+				if (! srv.match(/^https?\:\/\//)) {
+					srv = "http://"+srv;
+					inputField4.value = srv;
+				}
+				customDataURL = srv;
+				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data').write(customDataURL);
+				alert('synchronization server set');
+			} else {
+				alert('you must enter a URL');
+			}
+		});
+		var resetButton4 = Ti.UI.createButton({
+			height: formComponents.buttonHeight,
+			title: "default",
+			width: '20%',
+			left: '75%',
+			top: 400
+		});
+		formComponents.styleButton(resetButton4);
+		resetButton4.addEventListener('click', function(e){
+			inputField4.value = dataURL;
+			setButton4.fireEvent('click');
+		});
+		view.add(label4);
+		view.add(inputField4);
+		view.add(setButton4);
+		view.add(resetButton4);
 		
 		var backButton = Ti.UI.createButton({
 			height: formComponents.buttonHeight,
@@ -1472,10 +1717,6 @@ function Workflow() {
 		backButton.addEventListener('click', function(e){
 			self.manageFiles();
 		});
-		
-		view.add(inputField);
-		view.add(setButton);
-		view.add(resetButton);
 		
 		view.add(backButton);
 		
