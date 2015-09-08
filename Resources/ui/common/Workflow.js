@@ -1,19 +1,20 @@
 function Workflow() {
 	// global config variables
-	var loginURL = "http://api.metagenomics.anl.gov/?verbosity=verbose";
-	var templateBaseURL = "http://shock.metagenomics.anl.gov/node";
-	var templateURL = "?query&application=metazen&type=template";
-	var dataURL = "http://shock.metagenomics.anl.gov:8000/node";
+	var loginURL = "https://api.metagenomics.anl.gov/?verbosity=verbose";
+	var templateURL = "http://shock.metagenomics.anl.gov/node";
+	var templateQuery = "?query&application=metazen&type=template";
+	var dataURL = "http://shock.metagenomics.anl.gov/node";
+	var dataQuery = "?query&application=metazen&type=project";
 	
 	var customLoginURL = "";
-	var customTemplateBaseURL = "";
 	var customTemplateURL = "";
-	var customdataURL = "";
+	var customDataURL = "";
 	
 	// initialize self
 	var self = Ti.UI.createView({
 		backgroundColor: '#000000',
-		saving: false
+		saving: false,
+		user: null
 	});
 	
 	// make sure we never lose data
@@ -108,29 +109,23 @@ function Workflow() {
 		}
 		
 		// check the server urls
-		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/login').exists()) {
-			customLoginURL = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/login').read().text;
+		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/loginURL').exists()) {
+			customLoginURL = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/loginURL').read().text;
 		} else {
 			customLoginURL = loginURL;
-			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/login').write(loginURL);
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/loginURL').write(loginURL);
 		}
-		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateBase').exists()) {
-			customTemplateBaseURL = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateBase').read().text;
-		} else {
-			customTemplateBaseURL = templateBaseURL;
-			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateBase').write(templateBaseURL);
-		}
-		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/template').exists()) {
-			customTemplateURL = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/template').read().text;
+		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateURL').exists()) {
+			customTemplateURL = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateURL').read().text;
 		} else {
 			customTemplateURL = templateURL;
-			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/template').write(templateURL);
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateURL').write(templateURL);
 		}
-		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data').exists()) {
-			customDataURL = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data').read().text;
+		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/dataURL').exists()) {
+			customDataURL = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/dataURL').read().text;
 		} else {
 			customDataURL = dataURL;
-			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data').write(dataURL);
+			Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/dataURL').write(dataURL);
 		}
 		
 		if (norelay){
@@ -161,8 +156,7 @@ function Workflow() {
 	     			self.numTemplatesSynched = 0;
 					self.totalNumTemplates = response.length;
 	     			for (var i=0; i<response.length; i++) {
-						var tURL = customTemplateBaseURL + "/" + response[i].id+"?download";
-						console.log(tURL);
+						var tURL = customTemplateURL + "/" + response[i].id+"?download";
 						var cl = Ti.Network.createHTTPClient({
 					     	onload : function(e) {
 					     		var resp;
@@ -177,7 +171,7 @@ function Workflow() {
 						     		}
 					     		} catch (error) {
 					     			var dialog = Ti.UI.createAlertDialog({
-				     					title: "synchronysation error",
+				     					title: "synchronization error",
 				     					message: "the template server sent and invalid template",
 				     					buttonNames: ["OK"]
 				     				});
@@ -204,7 +198,7 @@ function Workflow() {
 					     	onerror : function(e) {
 					     		console.log(e);
 					         	var dialog = Ti.UI.createAlertDialog({
-			     					title: "synchronysation error",
+			     					title: "synchronization error",
 			     					message: "a system error ocurred when synchronizing one of the templates",
 			     					buttonNames: ["OK"]
 			     				});
@@ -221,7 +215,7 @@ function Workflow() {
 	     			}
 	     		} catch (error) {
 	     			var dialog = Ti.UI.createAlertDialog({
-     					title: "synchronysation error",
+     					title: "synchronization error",
      					message: "the template server could not be reached",
      					buttonNames: ["OK"]
      				});
@@ -231,7 +225,7 @@ function Workflow() {
 		    },
 	     	onerror : function(e) {
 	         	var dialog = Ti.UI.createAlertDialog({
- 					title: "synchronysation error",
+ 					title: "synchronization error",
  					message: "a system error ocurred when synchronizing templates",
  					buttonNames: ["OK"]
  				});
@@ -240,11 +234,94 @@ function Workflow() {
 	     	timeout : 5000  // in milliseconds
 		 });
 		 
+		 // set auth header
+		 client.setRequestHeader('Authorization', "mgrast "+self.user.token);
+		 
 		 // Prepare the connection.
- 		client.open("GET", customTemplateBaseURL + "/" + customTemplateURL);
+ 		client.open("GET", customTemplateURL + "/" + templateQuery);
  		
  		// Send the request.
  		client.send();	
+	};
+	
+	// perform the dataset synch operation
+	self.doDatasetSynch = function(){
+		var tURL = customDataURL;
+		var cl = Ti.Network.createHTTPClient({
+			onload : function(e) {
+	     		var resp;
+	     		try {
+	     			resp = JSON.parse(this.responseText);
+	     			var dialog = Ti.UI.createAlertDialog({
+     					title: "synchronization OK",
+     					message: "the data was successfully stored on the server",
+     					buttonNames: ["OK"]
+     				});
+     				dialog.show();
+     				return;
+	     		} catch (error) {
+	     			var dialog = Ti.UI.createAlertDialog({
+     					title: "synchronization error",
+     					message: "the data server sent and invalid response",
+     					buttonNames: ["OK"]
+     				});
+     				dialog.show();
+     				return;
+	     		}
+		    },
+	     	onerror : function(e) {
+	     		console.log(e);
+	         	var dialog = Ti.UI.createAlertDialog({
+ 					title: "synchronization error",
+ 					message: "a system error ocurred when synchronizing the dataset",
+ 					buttonNames: ["OK"]
+ 				});
+ 				dialog.show();
+	     	},
+	     	timeout : 5000  // in milliseconds
+		});
+		
+		// Prepare the connection.
+ 		cl.open("POST", tURL);
+ 		
+ 		// set auth header
+		cl.setRequestHeader('Authorization', "mgrast "+self.user.token);
+		
+		var content = '';
+		var boundary = '---------------------------170062046428149';
+
+		content += '--'+ boundary + '\r\n';
+		content += 'Content-Disposition: form-data; name="upload"; filename="project.json"\r\n';
+		content += 'Content-Type: binary/octet-stream\r\n';
+		content += '\r\n';
+		
+		var full_content = Ti.createBuffer({value: content});
+		
+		var dataFile = Ti.createBuffer({value : JSON.stringify(status.datasets[status.currentTemplate][status.currentDataset])});
+		full_content.append(dataFile);
+		
+		content = '\r\n--'+ boundary + '\r\n';
+		content += 'Content-Disposition: form-data; name="attributes"; filename="attributes"\r\n';
+		content += 'Content-Type: binary/octet-stream\r\n';
+		content += '\r\n';		
+		full_content.append(Ti.createBuffer({value: content}));
+		
+		var attFile = Ti.createBuffer({value : JSON.stringify({
+		 							"application": "metazen",
+		 			 				"type": "project",
+		 			  				"template": status.currentTemplate,
+		 			   				"project": status.currentDataset })});
+		full_content.append(attFile);
+		content = '\r\n';
+		content += '--'+ boundary + '--\r\n';
+		full_content.append(Ti.createBuffer({value: content}));
+		
+		var send_data = full_content.toBlob();
+		
+		cl.setRequestHeader('Content-Type', 'multipart/form-data; boundary=' + boundary);
+		
+		// Send the request.
+ 		cl.send(send_data);
 	};
 	
 	// VIEWS
@@ -288,7 +365,7 @@ function Workflow() {
 	self.checkLogin = function (view) {
 		// check if there is already a user with a valid token
 		if (Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').exists()) {
-			var user = JSON.parse(Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').read().text);
+			self.user = JSON.parse(Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').read().text);
 			var client = Ti.Network.createHTTPClient({
 		     	onload : function(e) {
 		     		var response;
@@ -307,18 +384,19 @@ function Workflow() {
 	     				dialog.show();
 	     				self.loginForm(view);
 	     			} else {
-	     				self.silentTemplateSynch = true;
-	     				self.synchTemplates();
+	     				if (status.templates.length == 0) {
+		     				self.silentTemplateSynch = true;
+		     				self.synchTemplates();
+	     				}
 	     				var dialog = Ti.UI.createAlertDialog({
 	     					title: "",
-	     					message: "Welcome back "+user.firstname+" "+user.lastname,
+	     					message: "Welcome back "+(self.user.firstname ? self.user.firstname+" "+self.user.lastname : self.user.fullname),
 	     					buttonNames: ["OK"]
 	     				});
 	     				dialog.addEventListener('click', function(e){
 	     					self.checkSession();
 	     				});
 	     				dialog.show();
-	     				self.user = user;
 	     			}
 			    },
 		     	onerror : function(e) {
@@ -329,11 +407,7 @@ function Workflow() {
 			 
 		 	// Prepare the connection.
 		 	client.open("GET", customLoginURL);
-	 		
-	 		// set auth
-			var header = user.token;
-			client.setRequestHeader('auth', header);
-			 
+
 			// Send the request.
 			client.send();
 		} else {
@@ -402,25 +476,26 @@ function Workflow() {
 	     				});
 	     				dialog.show();
 	     			} else {
+	     				self.user = response;
 	     				self.silentTemplateSynch = true;
 	     				self.synchTemplates();
 	     				var dialog = Ti.UI.createAlertDialog({
 	     					title: "login successful",
-	     					message: "Welcome "+response.firstname+" "+response.lastname,
+	     					message: "Welcome "+(self.user.firstname ? self.user.firstname+" "+self.user.lastname : self.user.fullname),
 	     					buttonNames: ["OK"]
 	     				});
 	     				dialog.addEventListener('click', function(e){
 	     					self.checkSession();
 	     				});
 	     				dialog.show();
-	     				self.user = response;
 	     				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/user').write(JSON.stringify(self.user));
 	     			}
 			    },
 		     	onerror : function(e) {
+		     		console.log(e);
 		         	var dialog = Ti.UI.createAlertDialog({
      					title: "login failed",
-     					message: "system error",
+     					message: "invalid credentials",
      					buttonNames: ["OK"]
      				});
      				dialog.show();
@@ -433,7 +508,7 @@ function Workflow() {
 	 		
 	 		// set auth
 			var header = "mggo4711"+Ti.Utils.base64encode(loginField.value+":"+passwordField.value);
-			client.setRequestHeader('auth', header);
+			client.setRequestHeader('Authorization', header);
 			 
 			// Send the request.
 			client.send();
@@ -517,7 +592,7 @@ function Workflow() {
 		
 		var login = Ti.UI.createLabel({
 			color: formComponents.labelFontColor,
-			text: 'logged in as '+self.user.firstname+" "+self.user.lastname,
+			text: 'logged in as '+(self.user.firstname ? self.user.firstname+" "+self.user.lastname : self.user.fullname),
 			height:'auto',
 			font: formComponents.labelFont,
 			width:'auto',
@@ -672,6 +747,54 @@ function Workflow() {
 				status.currentGroupIndex = 0;
 				status.currentGroupName = null;
 				self.showDatasetEdit();
+			});
+		}
+		
+		self.switchView(datasetSelectView);
+	};
+	
+	// show the dataset select for project synch
+	self.synchDatasets = function() {
+		var datasetSelectView = Ti.UI.createView({
+			top: formComponents.topMargin,
+			backgroundColor: '#000000',
+			width: '100%',
+			height: 'auto',
+			zIndex: 1
+		});
+		
+		// title
+		var titleLabel = Ti.UI.createLabel({
+			top: 0,
+			left: 10,
+			color: formComponents.labelFontColor,
+			text: 'select a project', 
+			font: formComponents.labelFont,
+			height:'auto',
+			width:'auto'
+			});
+		datasetSelectView.add(titleLabel);
+		
+		var datasetItems = [];
+		var ds2template = [];
+		for (var i=0;i<status.templates.length;i++){
+			var currentFormInstances = Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data/'+status.templates[i]).getDirectoryListing();
+			for (var h=0;h<currentFormInstances.length;h++){
+				datasetItems.push(status.templates[i] + " - " + currentFormInstances[h]);
+				ds2template.push({ "template": status.templates[i], "dataset": currentFormInstances[h] });
+			}
+		} 
+		var fs = formComponents.filterSelect({ view: datasetSelectView, items: datasetItems, skipRows: 1, cancel: self.homeScreen, noCancelBubble: true });
+		for (var i=0;i<fs.length;i++){
+			fs[i].bound = i;
+			fs[i].addEventListener('click', function(){
+				status.currentTemplate = ds2template[this.bound].template;
+				status.currentDataset = ds2template[this.bound].dataset;
+				self.loadCurrentDataset();
+				status.currentHierarchy = [];
+				status.currentGroupIndex = 0;
+				status.currentGroupName = null;
+				self.doDatasetSynch();
 			});
 		}
 		
@@ -1250,11 +1373,11 @@ function Workflow() {
 			zIndex: 1
 		});
 		
-		var buttons = formComponents.buttonMenu(['spacer', 'export project','synchronize project', 'synchronize templates', 'select servers', 'delete local files', 'spacer', 'main menu']);
+		var buttons = formComponents.buttonMenu(['spacer', 'export project','upload project', 'synchronize templates', 'select servers', 'delete local files', 'spacer', 'main menu']);
 		buttons['export project'].addEventListener('click',self.showDatasetExport);
 		manageView.add(buttons['export project']);
-		buttons['synchronize project'].addEventListener('click',self.synchDatasets);
-		manageView.add(buttons['synchronize project']);
+		buttons['upload project'].addEventListener('click',self.synchDatasets);
+		manageView.add(buttons['upload project']);
 		buttons['synchronize templates'].addEventListener('click',self.synchTemplates);
 		manageView.add(buttons['synchronize templates']);
 		buttons['select servers'].addEventListener('click',self.selectServers);
@@ -1496,7 +1619,7 @@ function Workflow() {
 					inputField1.value = srv;
 				}
 				customLoginURL = srv;
-				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/login').write(customLoginURL);
+				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/loginURL').write(customLoginURL);
 				alert('synchronization server set');
 			} else {
 				alert('you must enter a URL');
@@ -1521,7 +1644,7 @@ function Workflow() {
 		
 		var label2 = Ti.UI.createLabel({
 			color: formComponents.labelFontColor,
-			text: 'template base URL',
+			text: 'template URL',
 			height:'auto',
 			font: formComponents.labelFont,
 			width:'auto',
@@ -1537,7 +1660,7 @@ function Workflow() {
 			top: 200,
 			autocorrect: false,
 			font: formComponents.textFont,
-			hintText: templateBaseURL,
+			hintText: templateURL,
 			autocapitalization: Ti.UI.TEXT_AUTOCAPITALIZATION_NONE
 		});
 		inputField2.addEventListener('return', function(event){
@@ -1560,7 +1683,7 @@ function Workflow() {
 					inputField2.value = srv;
 				}
 				customTemplateBaseURL = srv;
-				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateBase').write(customTemplateBaseURL);
+				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/templateURL').write(customTemplateBaseURL);
 				alert('synchronization server set');
 			} else {
 				alert('you must enter a URL');
@@ -1575,7 +1698,7 @@ function Workflow() {
 		});
 		formComponents.styleButton(resetButton2);
 		resetButton2.addEventListener('click', function(e){
-			inputField2.value = templateBaseURL;
+			inputField2.value = templateURL;
 			setButton2.fireEvent('click');
 		});
 		view.add(label2);
@@ -1583,73 +1706,13 @@ function Workflow() {
 		view.add(setButton2);
 		view.add(resetButton2);
 		
-		var label3 = Ti.UI.createLabel({
-			color: formComponents.labelFontColor,
-			text: 'template URL',
-			height:'auto',
-			font: formComponents.labelFont,
-			width:'auto',
-			top: 265
-		});
-			
-		var inputField3 = Ti.UI.createTextField({
-			borderStyle: Ti.UI.INPUT_BORDERSTYLE_ROUNDED,
-			color: formComponents.textFontColor,
-			height: formComponents.buttonHeight,
-			width: '48%',
-			left: "5%",
-			top: 300,
-			autocorrect: false,
-			font: formComponents.textFont,
-			hintText: customTemplateURL,
-			autocapitalization: Ti.UI.TEXT_AUTOCAPITALIZATION_NONE
-		});
-		inputField3.addEventListener('return', function(event){
-			setButton3.fireEvent('click');
-		});
-		
-		var setButton3 = Ti.UI.createButton({
-			height: formComponents.buttonHeight,
-			title: "set",
-			width: '20%',
-			left: '54%',
-			top: 300
-		});
-		formComponents.styleButton(setButton3);
-		setButton3.addEventListener('click', function(e){
-			var srv = inputField3.value;
-			if (srv.length) {
-				customTemplateURL = srv;
-				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/template').write(customTemplateURL);
-				alert('synchronization server set');
-			} else {
-				alert('you must enter a value');
-			}
-		});
-		var resetButton3 = Ti.UI.createButton({
-			height: formComponents.buttonHeight,
-			title: "default",
-			width: '20%',
-			left: '75%',
-			top: 300
-		});
-		formComponents.styleButton(resetButton3);
-		resetButton1.addEventListener('click', function(e){
-			inputField3.value = templateURL;
-			setButton3.fireEvent('click');
-		});
-		view.add(label3);
-		view.add(inputField3);
-		view.add(setButton3);
-		view.add(resetButton3);
-		
 		var label4 = Ti.UI.createLabel({
 			color: formComponents.labelFontColor,
 			text: 'data URL',
 			height:'auto',
 			font: formComponents.labelFont,
 			width:'auto',
-			top: 365
+			top: 265
 		});
 			
 		var inputField4 = Ti.UI.createTextField({
@@ -1658,7 +1721,7 @@ function Workflow() {
 			height: formComponents.buttonHeight,
 			width: '48%',
 			left: "5%",
-			top: 400,
+			top: 300,
 			autocorrect: false,
 			font: formComponents.textFont,
 			hintText: customDataURL,
@@ -1673,7 +1736,7 @@ function Workflow() {
 			title: "set",
 			width: '20%',
 			left: '54%',
-			top: 400
+			top: 300
 		});
 		formComponents.styleButton(setButton4);
 		setButton4.addEventListener('click', function(e){
@@ -1684,7 +1747,7 @@ function Workflow() {
 					inputField4.value = srv;
 				}
 				customDataURL = srv;
-				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/data').write(customDataURL);
+				Ti.Filesystem.getFile(Ti.Filesystem.applicationDataDirectory+'/dataURL').write(customDataURL);
 				alert('synchronization server set');
 			} else {
 				alert('you must enter a URL');
@@ -1695,7 +1758,7 @@ function Workflow() {
 			title: "default",
 			width: '20%',
 			left: '75%',
-			top: 400
+			top: 300
 		});
 		formComponents.styleButton(resetButton4);
 		resetButton4.addEventListener('click', function(e){
@@ -1721,10 +1784,6 @@ function Workflow() {
 		view.add(backButton);
 		
 		self.switchView(view);
-	};
-	
-	self.synchDatasets = function () {
-		
 	};
 	
 	// DATA MANIPULATION
